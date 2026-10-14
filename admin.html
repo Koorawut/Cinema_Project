@@ -31,7 +31,7 @@
 
       <div class="demo-data-note" data-od-id="demo-note">
         <span aria-hidden="true">ⓘ</span>
-        <span>ตัวเลขส่วนใหญ่เป็นข้อมูลตัวอย่างที่สร้างแบบอัตโนมัติเพื่อการสาธิต (ดูประเด็น P-04 ในเอกสารโปรเจกต์) — จะแทนที่ด้วยข้อมูลจริงเมื่อเชื่อม backend</span>
+        <span>ข้อมูลจากฐานข้อมูล (ชุดตัวอย่างจาก seed) — ทุกตัวเลขนับจากบัญชีและการจองจริงใน DB</span>
       </div>
 
       <div class="range-tabs" role="tablist" aria-label="ช่วงเวลา" data-od-id="range-tabs">
@@ -98,9 +98,8 @@
             return c;
           }
 
-          var totalMembers = s.totalUsers + s.demoBaselineUsers;
-          grid.appendChild(stat('ผู้ใช้ทั้งหมด', numFmt.format(totalMembers),
-            'ในระบบจริง ' + numFmt.format(s.totalUsers) + ' บัญชี + ฐานข้อมูลตัวอย่าง ' + numFmt.format(s.demoBaselineUsers) + ' บัญชี'));
+          grid.appendChild(stat('ผู้ใช้ทั้งหมด', numFmt.format(s.totalUsers),
+            'บัญชีที่ลงทะเบียนในระบบ'));
           grid.appendChild(stat('ผู้เข้าชม (ตั๋วที่ขาย)', numFmt.format(s.tickets),
             'นับจากตั๋วที่ยืนยันแล้วในช่วงที่เลือก'));
           grid.appendChild(stat('การจอง', numFmt.format(s.bookings),

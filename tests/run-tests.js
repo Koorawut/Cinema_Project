@@ -38,7 +38,7 @@
     G.setTimeout = function (fn) { if (typeof fn === 'function') { fn(); } return 0; };
     var fs = require('fs');
     var pathMod = require('path');
-    (0, eval)(fs.readFileSync(pathMod.join(__dirname, '..', 'assets', 'js', 'api.js'), 'utf8'));
+    (0, eval)(fs.readFileSync(pathMod.join(__dirname, '..', 'assets', 'js', 'api-mock.js'), 'utf8'));
   }
 
   var A = G.window && G.window.MAISON_API;
@@ -148,10 +148,10 @@
       });
     });
   });
-  t('S1 ข้อมูลตั้งต้น', 'ฐานข้อมูลจำลองเขียนลง key maison_v1_db (seedVersion 4) พร้อมประวัติ demo 2 รายการ', function () {
+  t('S1 ข้อมูลตั้งต้น', 'ฐานข้อมูลจำลองเขียนลง key maison_v1_db (seedVersion 5) พร้อมประวัติ demo 2 รายการ', function () {
     var db = peekLS('maison_v1_db');
     ok(db, 'ต้องมี db ใน localStorage');
-    eq(db.seedVersion, 4);
+    eq(db.seedVersion, 5);
     ok(db.bookings.length >= 2, 'seed ต้องมีประวัติ demo 2 รายการ');
     db.bookings.forEach(function (b) {
       ok(/-morning$|-afternoon$|-evening$/.test(b.showtimeId), 'showtimeId ของ ' + b.code + ' ต้องเป็นรูปแบบช่วงเวลา');
@@ -423,6 +423,52 @@
     eq(r.promotion.code, 'MAISON20');
     await expectError(A.redeem('NOPE123'), 404);
   });
+  t('S6 โปรโมชัน', 'redeem + showtime/seats: คืน quote ราคาจริง (EVENINGPAIR 2 ที่นั่ง = 480 + ค่าบริการ 60) และโค้ดผิดเงื่อนไข = 422', async function () {
+    var evening = stIdOf('m07', refTodayISO(), 'evening');
+    var two = ['hall-02-A1', 'hall-02-A2'];
+    var r = await A.redeem('EVENINGPAIR', evening, two);
+    eq(r.quote.total, 480 + 60);
+    eq(r.quote.discount, 250 * 2 - 480);
+    eq(r.quote.serviceFee, 60, 'ค่าบริการต้องไม่ถูกลด');
+    await expectError(A.redeem('EVENINGPAIR', evening, ['hall-02-A1']), 422, 'ต้องพอดี 2 ที่นั่ง');
+    await expectError(A.redeem('EVENINGPAIR', stIdOf('m04', refTodayISO(), 'morning'), two), 422, 'รอบเช้าไม่เข้าเงื่อนไข 18:00');
+    await expectError(A.redeem('EVENINGPAIR', evening, []), 422, 'ไม่มีที่นั่ง');
+    await expectError(A.redeem('EVENINGPAIR', 'not-a-showtime', two), 404);
+  });
+  t('S6 โปรโมชัน', 'MAISON20 ใช้ได้เฉพาะรอบวันพุธ และ FRIDAY180 เฉพาะวันศุกร์ก่อน 15:00 (ตามวันในสัปดาห์ของรอบ)', async function () {
+    var wed = null, fri = null;
+    for (var i = 0; i < 6; i++) {
+      var iso = refISO(i);
+      var wd = new Date(iso + 'T00:00:00Z').getUTCDay();
+      if (wd === 3) { wed = iso; }
+      if (wd === 5) { fri = iso; }
+    }
+    var seatOne = ['hall-02-A1'];
+    for (var j = 0; j < 6; j++) {
+      var d = refISO(j);
+      var st = stIdOf('m04', d, 'morning'); // m04 ฉายรอบเช้าทุกวัน 240 บาท
+      var isWed = d === wed;
+      if (isWed) { eq((await A.redeem('MAISON20', st, seatOne)).quote.total, Math.round(240 * 0.8) + 30); }
+      else { await expectError(A.redeem('MAISON20', st, seatOne), 422, 'MAISON20 ต้องใช้ได้เฉพาะวันพุธ (' + d + ')'); }
+      if (d === fri) { eq((await A.redeem('FRIDAY180', st, seatOne)).quote.total, 180 + 30); }
+      else { await expectError(A.redeem('FRIDAY180', st, seatOne), 422, 'FRIDAY180 ต้องใช้ได้เฉพาะวันศุกร์ (' + d + ')'); }
+    }
+  });
+  t('S6 โปรโมชัน', 'จองด้วยโค้ด: total/discount/promoCode ถูกเก็บ และไม่สร้างการจองเมื่อโค้ดผิดเงื่อนไข', async function () {
+    await login('tester1', 'Passw0rd1');
+    var st = stIdOf('m07', refTodayISO(), 'evening');
+    var pick = await firstAvailable(st, 2);
+    var before = (await A.myBookings()).length;
+    await expectError(A.createBooking({ showtimeId: st, seatIds: pick.slice(0, 1), promoCode: 'EVENINGPAIR' }), 422, 'EVENINGPAIR ต้องพอดี 2 ที่นั่ง');
+    eq((await A.myBookings()).length, before);
+    await expectError(A.createBooking({ showtimeId: st, seatIds: pick, promoCode: 'NOPE123' }), 404);
+    var b = (await A.createBooking({ showtimeId: st, seatIds: pick, promoCode: 'eveningpair' })).booking;
+    eq(b.total, 480 + 60);
+    eq(b.discount, 250 * 2 - 480);
+    eq(b.promoCode, 'EVENINGPAIR');
+    eq((await A.myBookings()).length, before + 1);
+    await A.logout();
+  });
 
   /* ============================================================ S7 */
   t('S7 แอดมิน', 'ผู้ใช้ทั่วไปเรียกงาน admin = 403', async function () {
@@ -444,7 +490,7 @@
     await expectError(A.adminCreatePromotion(Object.assign({}, fields, { code: 'MAISON20' })), 409);
     await expectError(A.adminCreatePromotion(Object.assign({}, fields, { image: 'javascript:alert(1)' })), 422);
     await expectError(A.adminCreatePromotion(Object.assign({}, fields, { image: 'data:image/png;base64,YWJj' })), 422);
-    var image = 'data:image/png;base64,' + (typeof Buffer !== 'undefined' ? Buffer.from('\x89PNG\r\n\x1a\n').toString('base64') : 'iVBORw0KGgo=');
+    var image = 'data:image/png;base64,' + (typeof Buffer !== 'undefined' ? Buffer.from('\x89PNG\r\n\x1a\n', 'binary').toString('base64') : 'iVBORw0KGgo=');
     var p = await A.adminCreatePromotion(Object.assign({}, fields, { image: image }));
     eq(p.code, 'NEW-50');
     eq((await A.promotions()).length, 4);

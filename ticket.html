@@ -66,6 +66,7 @@
         body.appendChild(field('โรงฉาย', b.hall));
         body.appendChild(field('รหัสการจอง', b.code));
         body.appendChild(field('ที่นั่ง', b.seats.map(function (s) { return s.row + s.number; }).join(', '), true));
+        if (b.discount > 0) { body.appendChild(field('ส่วนลด (' + b.promoCode + ')', '−' + MAISON.baht(b.discount))); }
         body.appendChild(field('ยอดชำระรวม', MAISON.baht(b.total), true));
         card.appendChild(body);
 

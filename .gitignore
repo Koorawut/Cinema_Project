@@ -7,3 +7,7 @@ node_modules/
 page-*.png
 .DS_Store
 Thumbs.db
+.pglite/
+.pglite-test/
+public/
+.pglite-test-client/

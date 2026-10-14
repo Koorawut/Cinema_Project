@@ -1,0 +1,29 @@
+{
+  "name": "maison-cinema",
+  "version": "2.1.0",
+  "private": true,
+  "description": "MAISON Cinema — static frontend + Vercel Functions + Neon Postgres + Vercel Blob",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev-server.js",
+    "build": "node scripts/build.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js",
+    "test:mock": "node tests/run-tests.js",
+    "test:unit": "node --test tests/time.test.js tests/pricing.test.js",
+    "test:api": "node --test tests/api-http.test.js tests/api-client.test.js",
+    "test:smoke": "node tests/smoke-browser.js",
+    "test": "node tests/run-tests.js && node --test tests/time.test.js tests/pricing.test.js tests/api-http.test.js tests/api-client.test.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@vercel/blob": "^2.8.2",
+    "bcryptjs": "^3.0.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9"
+  }
+}

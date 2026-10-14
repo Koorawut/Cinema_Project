@@ -62,6 +62,7 @@
 
           var side = E('div', 'bc-side');
           side.appendChild(E('div', 'bc-total', MAISON.baht(b.total)));
+          if (b.discount > 0) { side.appendChild(E('div', 'small muted', 'ลด ' + MAISON.baht(b.discount) + ' (' + b.promoCode + ')')); }
           var badges = E('div');
           badges.appendChild(E('span', 'badge badge-success', 'ยืนยันแล้ว'));
           side.appendChild(badges);
