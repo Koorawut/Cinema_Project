@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>บัญชีของฉัน — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="container">
+    <div class="page-head">
+      <p class="eyebrow">MY ACCOUNT</p>
+      <h1 class="page-title">บัญชีของฉัน</h1>
+      <p class="page-sub">จัดการข้อมูลสมาชิกและความปลอดภัยของบัญชี MAISON ของคุณ</p>
+    </div>
+    <div class="account-grid">
+      <nav class="card account-nav" aria-label="เมนูบัญชี" data-od-id="account-nav">
+        <a href="account.html" id="tab-link-profile">ข้อมูลบัญชี</a>
+        <a href="account.html?tab=password" id="tab-link-password">เปลี่ยนรหัสผ่าน</a>
+        <div class="an-divider"></div>
+        <a href="bookings.html">การจองของฉัน</a>
+        <a href="offers.html">โปรโมชัน</a>
+      </nav>
+      <div>
+        <section id="section-profile" class="card" data-od-id="account-profile">
+          <div class="card-body">
+            <h2 class="card-title">ข้อมูลบัญชี</h2>
+            <div class="profile-rows">
+              <div class="profile-row">
+                <span class="lab">ชื่อผู้ใช้</span>
+                <span id="p-username"></span>
+              </div>
+              <div class="profile-row">
+                <span class="lab">อีเมล</span>
+                <span id="p-email"></span>
+              </div>
+              <div class="profile-row">
+                <span class="lab">บทบาท</span>
+                <span id="p-role"></span>
+              </div>
+              <div class="profile-row">
+                <span class="lab">สมาชิกตั้งแต่</span>
+                <span id="p-since"></span>
+              </div>
+              <div class="profile-row">
+                <span class="lab">สถานะบัญชี</span>
+                <span><span class="badge badge-success">สมาชิก MAISON</span></span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="section-password" class="card" hidden>
+          <div class="card-body">
+            <h2 class="card-title">เปลี่ยนรหัสผ่าน</h2>
+            <div class="form-error-banner" id="pw-error" hidden></div>
+            <form id="password-form">
+              <div class="field">
+                <label for="currentPassword">รหัสผ่านปัจจุบัน</label>
+                <input class="input" type="password" id="currentPassword" autocomplete="current-password" required>
+              </div>
+              <div class="field">
+                <label for="newPassword">รหัสผ่านใหม่</label>
+                <input class="input" type="password" id="newPassword" autocomplete="new-password" required minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข">
+                <p class="field-hint">อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข และต้องต่างจากรหัสผ่านปัจจุบัน</p>
+              </div>
+              <div class="field">
+                <label for="confirmNewPassword">ยืนยันรหัสผ่านใหม่</label>
+                <input class="input" type="password" id="confirmNewPassword" autocomplete="new-password" required minlength="8">
+              </div>
+              <button type="submit" class="btn btn-primary" id="pw-submit">เปลี่ยนรหัสผ่าน</button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'bookings', guard: 'user' }).then(function (ctx) {
+      var user = ctx.user;
+
+      document.getElementById('p-username').textContent = user.username;
+      document.getElementById('p-email').textContent = user.email;
+      var roleEl = document.getElementById('p-role');
+      roleEl.innerHTML = user.role === 'admin'
+        ? '<span class="badge badge-gold">ผู้ดูแลระบบ</span>'
+        : '<span class="badge">สมาชิกทั่วไป</span>';
+      document.getElementById('p-since').textContent = MAISON.thLongDate(user.createdAt);
+
+      /* แท็บ: ข้อมูลบัญชี / เปลี่ยนรหัสผ่าน */
+      var tab = MAISON.qs('tab') === 'password' ? 'password' : 'profile';
+      document.getElementById('section-profile').hidden = tab !== 'profile';
+      document.getElementById('section-password').hidden = tab !== 'password';
+      document.getElementById('tab-link-profile').toggleAttribute('aria-current', tab === 'profile');
+      document.getElementById('tab-link-password').toggleAttribute('aria-current', tab === 'password');
+
+      var form = document.getElementById('password-form');
+      var errBox = document.getElementById('pw-error');
+      var btn = document.getElementById('pw-submit');
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        errBox.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'กำลังบันทึก...';
+        MAISON_API.changePassword({
+          currentPassword: document.getElementById('currentPassword').value,
+          newPassword: document.getElementById('newPassword').value,
+          confirmPassword: document.getElementById('confirmNewPassword').value
+        }).then(function () {
+          form.reset();
+          MAISON.toast('เปลี่ยนรหัสผ่านสำเร็จ', 'success');
+        }).catch(function (err) {
+          errBox.textContent = err.message;
+          errBox.hidden = false;
+        }).then(function () {
+          btn.disabled = false;
+          btn.textContent = 'เปลี่ยนรหัสผ่าน';
+        });
+      });
+    });
+  </script>
+</body>
+</html>

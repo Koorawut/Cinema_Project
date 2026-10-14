@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D1620"/>
+      <stop offset="1" stop-color="#0D0A0E"/>
+    </linearGradient>
+    <radialGradient id="candle" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#C9B485" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#C9B485" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="1200" fill="url(#bg)"/>
+  <g fill="none" stroke="#5E4A66" stroke-width="1.5" opacity="0.35">
+    <circle cx="610" cy="360" r="150"/>
+    <circle cx="610" cy="360" r="110"/>
+    <circle cx="610" cy="360" r="70"/>
+  </g>
+  <ellipse cx="610" cy="360" rx="70" ry="150" fill="#0D0A0E" opacity="0.85"/>
+  <circle cx="610" cy="360" r="46" fill="url(#candle)"/>
+  <g fill="#C9B485" opacity="0.5">
+    <circle cx="150" cy="300" r="2"/>
+    <circle cx="190" cy="500" r="1.5"/>
+    <circle cx="120" cy="700" r="2"/>
+    <circle cx="230" cy="880" r="1.5"/>
+  </g>
+  <text x="70" y="160" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="8" fill="#C9B485">MAISON PRESENTS</text>
+  <text x="70" y="206" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="5" fill="#B9A9C2" opacity="0.75">HORROR</text>
+  <text x="70" y="600" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="bold" fill="#F2EFE7">The Hollow</text>
+  <text x="70" y="695" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="bold" fill="#F2EFE7">Choir</text>
+  <text x="70" y="765" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#A3A89F">บทสวดที่ดังขึ้นเอง ในโบสถ์ร้าง</text>
+  <rect x="70" y="1020" width="120" height="3" fill="#C9B485"/>
+  <text x="70" y="1072" font-family="Georgia, 'Times New Roman', serif" font-size="18" letter-spacing="4" fill="#A3A89F">NOW SHOWING AT MAISON</text>
+  <text x="70" y="1104" font-family="Georgia, 'Times New Roman', serif" font-size="16" fill="#6E736B">HALL 01 · 4 SHOWTIMES DAILY</text>
+</svg>

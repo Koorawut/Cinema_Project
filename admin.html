@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ภาพรวมระบบ — MAISON Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <div class="admin-shell">
+    <aside class="admin-sidebar" data-od-id="admin-sidebar">
+      <nav class="admin-nav" aria-label="เมนูผู้ดูแลระบบ">
+        <a href="admin.html" aria-current="page">ภาพรวม</a>
+        <a href="admin-movies.html">ภาพยนตร์</a>
+        <a href="admin-accounts.html">บัญชีผู้ใช้</a>
+        <a href="admin-promotions.html">คูปอง</a>
+      </nav>
+      <div class="as-foot">
+        <a class="section-link" href="index.html">&larr; กลับเว็บไซต์หลัก</a>
+      </div>
+    </aside>
+    <div class="admin-main">
+      <div class="page-head" data-od-id="admin-overview-head">
+        <p class="eyebrow">ADMIN OVERVIEW</p>
+        <h1 class="page-title">ภาพรวมระบบ</h1>
+        <p class="page-sub">สถิติการใช้งานและยอดขายของโรงภาพยนตร์ MAISON</p>
+      </div>
+
+      <div class="demo-data-note" data-od-id="demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        <span>ตัวเลขส่วนใหญ่เป็นข้อมูลตัวอย่างที่สร้างแบบอัตโนมัติเพื่อการสาธิต (ดูประเด็น P-04 ในเอกสารโปรเจกต์) — จะแทนที่ด้วยข้อมูลจริงเมื่อเชื่อม backend</span>
+      </div>
+
+      <div class="range-tabs" role="tablist" aria-label="ช่วงเวลา" data-od-id="range-tabs">
+        <button type="button" data-days="0" class="active">ทั้งหมด</button>
+        <button type="button" data-days="7">7 วัน</button>
+        <button type="button" data-days="14">14 วัน</button>
+        <button type="button" data-days="30">30 วัน</button>
+      </div>
+
+      <div class="stat-grid" id="stat-grid" data-od-id="stat-grid"></div>
+
+      <section class="section" style="padding-top:10px">
+        <div class="section-head">
+          <h2 class="section-title">มูลค่าการจอง 14 วันล่าสุด</h2>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="bar-chart" id="bar-chart" role="img" aria-label="กราฟแท่งมูลค่าการจองรายวัน 14 วันล่าสุด"></div>
+            <div class="bar-labels" id="bar-labels"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h2 class="section-title">ยอดขายแยกตามภาพยนตร์</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>ภาพยนตร์</th>
+                <th>ตั๋วที่ขาย</th>
+                <th>มูลค่ายืนยันแล้ว</th>
+              </tr>
+            </thead>
+            <tbody id="movie-stats-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ chrome: 'admin', guard: 'admin' }).then(function () {
+      var E = MAISON.el;
+      var numFmt = new Intl.NumberFormat('th-TH');
+      var currentDays = 0;
+
+      function load() {
+        var grid = document.getElementById('stat-grid');
+        grid.innerHTML = '';
+        grid.appendChild(E('div', 'spinner')).setAttribute('role', 'status');
+
+        MAISON_API.adminStats({ days: currentDays }).then(function (s) {
+          grid.innerHTML = '';
+
+          function stat(label, value, note) {
+            var c = E('div', 'card stat-card');
+            c.appendChild(E('div', 'stat-label', label));
+            c.appendChild(E('div', 'stat-value', value));
+            if (note) { c.appendChild(E('div', 'stat-note', note)); }
+            return c;
+          }
+
+          var totalMembers = s.totalUsers + s.demoBaselineUsers;
+          grid.appendChild(stat('ผู้ใช้ทั้งหมด', numFmt.format(totalMembers),
+            'ในระบบจริง ' + numFmt.format(s.totalUsers) + ' บัญชี + ฐานข้อมูลตัวอย่าง ' + numFmt.format(s.demoBaselineUsers) + ' บัญชี'));
+          grid.appendChild(stat('ผู้เข้าชม (ตั๋วที่ขาย)', numFmt.format(s.tickets),
+            'นับจากตั๋วที่ยืนยันแล้วในช่วงที่เลือก'));
+          grid.appendChild(stat('การจอง', numFmt.format(s.bookings),
+            currentDays ? 'ช่วง ' + currentDays + ' วันล่าสุด' : 'ตั้งแต่เริ่มบันทึก'));
+          grid.appendChild(stat('รายได้ค่าบริการ', MAISON.baht(s.serviceFeeEstimate),
+            'ค่าบริการ ' + MAISON.baht(MAISON_API.serviceFee) + ' ต่อตั๋ว (นิยามตาม P-04 ยังรอยืนยัน)'));
+          grid.appendChild(stat('มูลค่าตั๋วยืนยันรวม', MAISON.baht(s.confirmedValue),
+            'รวมราคาตั๋วก่อนหักค่าบริการ'));
+          grid.appendChild(stat('หนังที่ฉายอยู่', numFmt.format(s.byMovie.length),
+            'จากข้อมูลการขายในช่วงที่เลือก'));
+
+          /* กราฟแท่ง 14 วัน */
+          var chart = document.getElementById('bar-chart');
+          var labels = document.getElementById('bar-labels');
+          chart.innerHTML = '';
+          labels.innerHTML = '';
+          var max = Math.max.apply(null, s.daily.map(function (d) { return d.value; })) || 1;
+          s.daily.forEach(function (d) {
+            var bar = E('div', 'bar');
+            var h = Math.max(2, Math.round((d.value / max) * 100));
+            bar.style.height = h + '%';
+            bar.title = MAISON.thDate(d.date) + ' — ' + MAISON.baht(d.value) + ' (' + d.bookings + ' รายการ)';
+            chart.appendChild(bar);
+            labels.appendChild(E('span', null, d.date.slice(8) + '/' + d.date.slice(5, 7)));
+          });
+
+          /* ตารางแยกตามหนัง */
+          var tbody = document.getElementById('movie-stats-tbody');
+          tbody.innerHTML = '';
+          if (!s.byMovie.length) {
+            var tr = E('tr');
+            tr.appendChild(E('td', null, 'ไม่มีข้อมูลในช่วงที่เลือก')).colSpan = 3;
+            tbody.appendChild(tr);
+            return;
+          }
+          s.byMovie.forEach(function (row) {
+            var tr = E('tr');
+            tr.appendChild(E('td', 'cell-title', row.title));
+            tr.appendChild(E('td', null, numFmt.format(row.tickets)));
+            tr.appendChild(E('td', 'price', MAISON.baht(row.value)));
+            tbody.appendChild(tr);
+          });
+        }).catch(MAISON.handleApiError);
+      }
+
+      var tabs = document.querySelectorAll('.range-tabs button');
+      Array.prototype.forEach.call(tabs, function (t) {
+        t.addEventListener('click', function () {
+          Array.prototype.forEach.call(tabs, function (x) { x.classList.remove('active'); });
+          t.classList.add('active');
+          currentDays = Number(t.getAttribute('data-days'));
+          load();
+        });
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

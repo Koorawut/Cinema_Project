@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+.vercel/
+*.pdf
+*.zip
+page-*.png
+.DS_Store
+Thumbs.db

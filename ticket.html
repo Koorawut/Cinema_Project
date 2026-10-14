@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตั๋วของคุณ — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="container" id="main">
+    <div class="page-head">
+      <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'bookings', guard: 'user' }).then(function () {
+      var E = MAISON.el;
+      var main = document.getElementById('main');
+      var id = MAISON.qs('id');
+
+      if (!id) { MAISON.go('bookings.html'); return; }
+
+      MAISON_API.myBookings().then(function (list) {
+        var b = list.filter(function (x) { return x.id === id; })[0];
+        main.innerHTML = '';
+
+        if (!b) {
+          var missing = E('div', 'empty-state card');
+          missing.appendChild(E('div', 'glyph', '!'));
+          missing.appendChild(E('h2', null, 'ไม่พบการจองนี้'));
+          missing.appendChild(E('p', 'small', 'การจองอาจถูกยกเลิก หรือเป็นของบัญชีอื่น'));
+          var backAll = E('a', 'btn btn-secondary', 'ดูการจองทั้งหมด');
+          backAll.href = 'bookings.html';
+          missing.appendChild(backAll);
+          main.appendChild(missing);
+          return;
+        }
+
+        var card = E('div', 'card ticket-card');
+        card.setAttribute('data-od-id', 'ticket-card');
+
+        var head = E('div', 'ticket-head');
+        var headLeft = E('div');
+        headLeft.appendChild(E('p', 'eyebrow', 'BOOKING CONFIRMED — การจองสำเร็จ'));
+        headLeft.appendChild(E('h2', null, b.movieTitle));
+        headLeft.appendChild(E('p', 'small', 'ขอบคุณที่จองกับ MAISON — กรุณามาถึงก่อนเวลาฉาย 15 นาที'));
+        var code = E('div', 'ticket-code', b.code);
+        head.appendChild(headLeft);
+        head.appendChild(code);
+        card.appendChild(head);
+
+        var body = E('div', 'ticket-body');
+        function field(label, value, serif) {
+          var f = E('div', 'ticket-field');
+          f.appendChild(E('div', 'tf-label', label));
+          f.appendChild(E('div', 'tf-value' + (serif ? ' serif' : ''), value));
+          return f;
+        }
+        body.appendChild(field('วันที่ฉาย', MAISON.thLongDate(b.startsAt.slice(0, 10))));
+        body.appendChild(field('เวลาฉาย', b.startsAt.slice(11, 16) + ' น.'));
+        body.appendChild(field('โรงฉาย', b.hall));
+        body.appendChild(field('รหัสการจอง', b.code));
+        body.appendChild(field('ที่นั่ง', b.seats.map(function (s) { return s.row + s.number; }).join(', '), true));
+        body.appendChild(field('ยอดชำระรวม', MAISON.baht(b.total), true));
+        card.appendChild(body);
+
+        var seatsBox = E('div', 'ticket-seats');
+        var seatBadges = E('div', 'seats-picked');
+        b.seats.forEach(function (s) {
+          seatBadges.appendChild(E('span', 'badge badge-gold', s.row + s.number));
+        });
+        seatsBox.appendChild(E('p', 'small muted', 'ที่นั่งของคุณ'));
+        seatsBox.appendChild(seatBadges);
+        card.appendChild(seatsBox);
+
+        var actions = E('div', 'ticket-actions');
+        var all = E('a', 'btn btn-primary', 'ดูการจองทั้งหมด');
+        all.href = 'bookings.html';
+        var home = E('a', 'btn btn-secondary', 'กลับหน้าแรก');
+        home.href = 'index.html';
+        actions.appendChild(all);
+        actions.appendChild(home);
+        card.appendChild(actions);
+
+        main.appendChild(card);
+      }).catch(MAISON.handleApiError);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>โปรโมชัน — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="container">
+    <div class="page-head" data-od-id="offers-head">
+      <p class="eyebrow">MEMBER OFFERS</p>
+      <h1 class="page-title">โปรโมชัน</h1>
+      <p class="page-sub">ข้อเสนอพิเศษสำหรับสมาชิก MAISON — ตรวจสอบรหัสโปรโมชันก่อนใช้จองได้ที่นี่</p>
+    </div>
+
+    <div class="card redeem-box" data-od-id="redeem-box">
+      <h2 class="card-title">ตรวจสอบรหัสโปรโมชัน</h2>
+      <div class="redeem-row">
+        <input class="input" type="text" id="redeem-code" placeholder="เช่น MAISON20" aria-label="รหัสโปรโมชัน">
+        <button type="button" class="btn btn-primary" id="redeem-btn">ตรวจสอบรหัส</button>
+      </div>
+      <p class="small muted gap-t" id="redeem-result">ระบบสาธิต (v1): รองรับเฉพาะการตรวจสอบว่ารหัสมีอยู่จริง ยังไม่นำส่วนลดไปคำนวณกับราคาตั๋ว</p>
+    </div>
+
+    <div class="offers-grid" id="offers-grid"></div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'offers' }).then(function () {
+      var E = MAISON.el;
+      var grid = document.getElementById('offers-grid');
+      var codeInput = document.getElementById('redeem-code');
+      var btn = document.getElementById('redeem-btn');
+      var result = document.getElementById('redeem-result');
+
+      btn.addEventListener('click', function () {
+        var code = codeInput.value.trim();
+        if (!code) {
+          MAISON.toast('กรุณากรอกรหัสโปรโมชันก่อน', 'info');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'กำลังตรวจสอบ...';
+        MAISON_API.redeem(code).then(function (res) {
+          result.textContent = 'รหัสถูกต้อง — ' + res.promotion.title + ' (' + res.note + ')';
+          MAISON.toast('รหัสโปรโมชันใช้ได้: ' + res.promotion.title, 'success');
+        }).catch(function (err) {
+          result.textContent = err.message;
+          MAISON.toast(err.message, 'error');
+        }).then(function () {
+          btn.disabled = false;
+          btn.textContent = 'ตรวจสอบรหัส';
+        });
+      });
+      codeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { btn.click(); }
+      });
+
+      MAISON_API.promotions().then(function (promos) {
+        promos.forEach(function (p) {
+          var card = E('article', 'card offer-card');
+          card.setAttribute('data-od-id', 'offer-' + p.code);
+          var media = E('div', 'offer-media');
+          if (p.image) {
+            var img = E('img');
+            img.src = p.image; img.alt = p.title; img.loading = 'lazy';
+            media.appendChild(img);
+          }
+          var body = E('div', 'offer-body');
+          body.appendChild(E('p', 'eyebrow', p.code));
+          body.appendChild(E('h3', null, p.title));
+          body.appendChild(E('p', 'small', p.summary));
+          body.appendChild(E('p', null, p.details));
+          var terms = E('ul', 'terms');
+          (p.terms || []).forEach(function (t) {
+            terms.appendChild(E('li', null, t));
+          });
+          body.appendChild(terms);
+          body.appendChild(E('div', 'offer-spacer'));
+          var cta = E('a', 'btn btn-secondary btn-sm', 'จองตั๋วพร้อมใช้สิทธิ์');
+          cta.href = 'movies.html';
+          body.appendChild(cta);
+          card.appendChild(media);
+          card.appendChild(body);
+          grid.appendChild(card);
+        });
+      }).catch(MAISON.handleApiError);
+    });
+  </script>
+</body>
+</html>

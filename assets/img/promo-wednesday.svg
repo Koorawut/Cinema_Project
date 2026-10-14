@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#F2EFE7"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#C9B485"/>
+  <g stroke="#E4E2D9" stroke-width="1" fill="none" opacity="0.8">
+    <circle cx="960" cy="330" r="210"/>
+    <circle cx="960" cy="330" r="160"/>
+    <circle cx="960" cy="330" r="110"/>
+  </g>
+  <text x="90" y="150" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="9" fill="#A08A5C">MEMBER OFFERS · WEDNESDAY</text>
+  <text x="86" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="130" font-weight="bold" fill="#171A18">20% OFF</text>
+  <text x="90" y="380" font-family="Georgia, 'Times New Roman', serif" font-size="34" fill="#48684B">ทุกที่นั่ง ทุกรอบฉายของวันพุธ</text>
+  <rect x="90" y="430" width="330" height="70" rx="6" fill="#171A18"/>
+  <text x="255" y="476" font-family="Georgia, 'Times New Roman', serif" font-size="30" letter-spacing="8" fill="#C9B485" text-anchor="middle">MAISON20</text>
+  <text x="90" y="560" font-family="Georgia, 'Times New Roman', serif" font-size="17" fill="#696D66">สมาชิก MAISON รับส่วนลด 20% จากราคาตั๋วปกติทุกวันพุธ</text>
+  <text x="90" y="590" font-family="Georgia, 'Times New Roman', serif" font-size="17" fill="#696D66">เงื่อนไขการใช้ร่วมกับข้อเสนออื่นอยู่ระหว่างยืนยัน</text>
+</svg>

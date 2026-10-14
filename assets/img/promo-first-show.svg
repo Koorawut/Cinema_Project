@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#FAF8F2"/>
+  <g stroke="#E4E2D9" stroke-width="1">
+    <line x1="0" y1="112.5" x2="1200" y2="112.5"/>
+    <line x1="0" y1="225" x2="1200" y2="225"/>
+    <line x1="0" y1="337.5" x2="1200" y2="337.5"/>
+    <line x1="0" y1="450" x2="1200" y2="450"/>
+    <line x1="0" y1="562.5" x2="1200" y2="562.5"/>
+    <line x1="200" y1="0" x2="200" y2="675"/>
+    <line x1="400" y1="0" x2="400" y2="675"/>
+    <line x1="600" y1="0" x2="600" y2="675"/>
+    <line x1="800" y1="0" x2="800" y2="675"/>
+    <line x1="1000" y1="0" x2="1000" y2="675"/>
+  </g>
+  <text x="90" y="150" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="9" fill="#A08A5C">FIRST SHOW FRIDAYS</text>
+  <text x="86" y="310" font-family="Georgia, 'Times New Roman', serif" font-size="130" font-weight="bold" fill="#171A18">180.-</text>
+  <text x="90" y="380" font-family="Georgia, 'Times New Roman', serif" font-size="34" fill="#48684B">ราคาเดียวทั่วโรง รอบก่อน 15:00 วันศุกร์</text>
+  <rect x="90" y="430" width="350" height="70" rx="6" fill="#171A18"/>
+  <text x="265" y="476" font-family="Georgia, 'Times New Roman', serif" font-size="30" letter-spacing="7" fill="#C9B485" text-anchor="middle">FRIDAY180</text>
+  <text x="90" y="560" font-family="Georgia, 'Times New Roman', serif" font-size="17" fill="#696D66">เริ่มสัปดาห์ใหม่ด้วยภาพยนตร์เรื่องโปรด รอบเช้าของทุกวันศุกร์</text>
+  <text x="90" y="590" font-family="Georgia, 'Times New Roman', serif" font-size="17" fill="#696D66">ไม่สามารถใช้ร่วมกับส่วนลดอื่น (รอยืนยันกติกา)</text>
+</svg>

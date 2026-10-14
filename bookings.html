@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>การจองของฉัน — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="container">
+    <div class="page-head" data-od-id="bookings-head">
+      <p class="eyebrow">PURCHASE HISTORY</p>
+      <h1 class="page-title">การจองของฉัน</h1>
+      <p class="page-sub">ประวัติการจองตั๋วทั้งหมดของบัญชีคุณ เรียงจากล่าสุดไปเก่าสุด</p>
+    </div>
+    <div id="booking-root">
+      <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'bookings', guard: 'user' }).then(function () {
+      var E = MAISON.el;
+      var root = document.getElementById('booking-root');
+
+      MAISON_API.myBookings().then(function (list) {
+        root.innerHTML = '';
+        if (!list.length) {
+          var empty = E('div', 'empty-state card');
+          empty.appendChild(E('div', 'glyph', '○'));
+          empty.appendChild(E('h2', null, 'ยังไม่มีประวัติการจอง'));
+          empty.appendChild(E('p', 'small', 'เริ่มต้นจองภาพยนตร์เรื่องแรกของคุณได้เลย'));
+          var browse = E('a', 'btn btn-primary', 'ดูภาพยนตร์ที่กำลังฉาย');
+          browse.href = 'movies.html';
+          empty.appendChild(browse);
+          root.appendChild(empty);
+          return;
+        }
+
+        var wrap = E('div', 'booking-list');
+        list.forEach(function (b) {
+          var card = E('article', 'card booking-card');
+          card.setAttribute('data-od-id', 'booking-' + b.code);
+
+          var mainPart = E('div', 'bc-main');
+          mainPart.appendChild(E('h3', null, b.movieTitle));
+          var meta = E('div', 'bc-meta');
+          meta.appendChild(E('span', null, MAISON.thDateTime(b.startsAt)));
+          meta.appendChild(E('span', null, b.hall));
+          meta.appendChild(E('span', null, 'รหัส ' + b.code));
+          mainPart.appendChild(meta);
+
+          var seats = E('div', 'bc-seats');
+          b.seats.forEach(function (s) {
+            seats.appendChild(E('span', 'badge', s.row + s.number));
+          });
+          mainPart.appendChild(seats);
+
+          var side = E('div', 'bc-side');
+          side.appendChild(E('div', 'bc-total', MAISON.baht(b.total)));
+          var badges = E('div');
+          badges.appendChild(E('span', 'badge badge-success', 'ยืนยันแล้ว'));
+          side.appendChild(badges);
+          var view = E('a', 'btn-link', 'ดูตั๋ว');
+          view.href = 'ticket.html?id=' + encodeURIComponent(b.id);
+          side.appendChild(view);
+
+          card.appendChild(mainPart);
+          card.appendChild(side);
+          wrap.appendChild(card);
+        });
+        root.appendChild(wrap);
+      }).catch(MAISON.handleApiError);
+    });
+  </script>
+</body>
+</html>

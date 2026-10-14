@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15262B"/>
+      <stop offset="1" stop-color="#0A1214"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1200" fill="url(#bg)"/>
+  <g fill="none" stroke="#7FA6AD" stroke-width="2" opacity="0.4">
+    <path d="M-20,420 Q120,380 260,420 T540,420 T820,420"/>
+    <path d="M-20,470 Q120,430 260,470 T540,470 T820,470"/>
+    <path d="M-20,520 Q120,480 260,520 T540,520 T820,520"/>
+  </g>
+  <circle cx="600" cy="260" r="80" fill="#E8DDBE" opacity="0.2"/>
+  <path d="M560,268 l80,-16 M566,290 l68,-14" stroke="#F2EFE7" stroke-width="2" opacity="0.35"/>
+  <text x="70" y="160" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="8" fill="#C9B485">MAISON PRESENTS</text>
+  <text x="70" y="206" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="5" fill="#A9C4C9" opacity="0.75">DRAMA</text>
+  <text x="70" y="600" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="bold" fill="#F2EFE7">Letters from</text>
+  <text x="70" y="695" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="bold" fill="#F2EFE7">Phuket</text>
+  <text x="70" y="765" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#A3A89F">จดหมายฉบับสุดท้ายที่ส่งไม่ถึง</text>
+  <rect x="70" y="1020" width="120" height="3" fill="#C9B485"/>
+  <text x="70" y="1072" font-family="Georgia, 'Times New Roman', serif" font-size="18" letter-spacing="4" fill="#A3A89F">NOW SHOWING AT MAISON</text>
+  <text x="70" y="1104" font-family="Georgia, 'Times New Roman', serif" font-size="16" fill="#6E736B">HALL 01 · 4 SHOWTIMES DAILY</text>
+</svg>

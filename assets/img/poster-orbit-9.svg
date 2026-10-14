@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0F1826"/>
+      <stop offset="1" stop-color="#06090F"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1200" fill="url(#bg)"/>
+  <g fill="none" stroke="#5F7BA6" stroke-width="1.5" opacity="0.5">
+    <ellipse cx="620" cy="330" rx="170" ry="60" transform="rotate(-18 620 330)"/>
+    <ellipse cx="620" cy="330" rx="120" ry="42" transform="rotate(-18 620 330)"/>
+    <circle cx="620" cy="330" r="36" fill="#C9B485" stroke="none" opacity="0.9"/>
+  </g>
+  <g fill="#EAE2CF">
+    <circle cx="140" cy="240" r="1.8" opacity="0.8"/>
+    <circle cx="220" cy="420" r="1.4" opacity="0.6"/>
+    <circle cx="110" cy="620" r="2" opacity="0.7"/>
+    <circle cx="300" cy="760" r="1.5" opacity="0.5"/>
+    <circle cx="180" cy="900" r="1.8" opacity="0.6"/>
+    <circle cx="700" cy="620" r="1.6" opacity="0.5"/>
+    <circle cx="520" cy="880" r="1.4" opacity="0.45"/>
+  </g>
+  <text x="70" y="160" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="8" fill="#C9B485">MAISON PRESENTS</text>
+  <text x="70" y="206" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="5" fill="#9FB4D0" opacity="0.75">SCIENCE FICTION</text>
+  <text x="70" y="620" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-weight="bold" fill="#F2EFE7">Orbit 9</text>
+  <text x="70" y="775" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#A3A89F">สถานีสุดท้ายของมนุษยชาติ รับสัญญาณที่ไม่ควรมีใครได้ยิน</text>
+  <rect x="70" y="1020" width="120" height="3" fill="#C9B485"/>
+  <text x="70" y="1072" font-family="Georgia, 'Times New Roman', serif" font-size="18" letter-spacing="4" fill="#A3A89F">NOW SHOWING AT MAISON</text>
+  <text x="70" y="1104" font-family="Georgia, 'Times New Roman', serif" font-size="16" fill="#6E736B">HALL 01 · 4 SHOWTIMES DAILY</text>
+</svg>

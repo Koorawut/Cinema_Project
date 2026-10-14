@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ภาพยนตร์ — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-dark">
+  <main class="container">
+    <div class="page-head" data-od-id="movies-head">
+      <p class="eyebrow">NOW SHOWING</p>
+      <h1 class="page-title">ภาพยนตร์</h1>
+      <p class="page-sub">ค้นหา กรองแนว และเลือกวันที่ต้องการดูสถานะรอบฉายของแต่ละเรื่อง</p>
+    </div>
+
+    <div class="toolbar" data-od-id="movies-toolbar">
+      <input class="input" type="search" id="search" placeholder="ค้นหาชื่อภาพยนตร์..." aria-label="ค้นหาชื่อภาพยนตร์">
+      <select class="select" id="sort" aria-label="เรียงลำดับ">
+        <option value="popular">เรียง: ยอดนิยม</option>
+        <option value="title">เรียง: ชื่อ A–Z</option>
+        <option value="price-asc">เรียง: ราคาต่ำสุด</option>
+      </select>
+    </div>
+
+    <div class="date-strip" id="date-strip" aria-label="เลือกวันฉาย" data-od-id="date-strip"></div>
+    <div class="chip-row" id="genre-chips" aria-label="กรองตามแนวภาพยนตร์" data-od-id="genre-chips"></div>
+
+    <div class="table-wrap gap-t" data-od-id="movies-table">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>ภาพยนตร์</th>
+            <th>ราคา</th>
+            <th>โรงฉาย</th>
+            <th>ช่วงวันฉาย</th>
+            <th>สถานะวันที่เลือก</th>
+            <th>รอบว่าง</th>
+            <th><span class="sr-only">การกระทำ</span></th>
+          </tr>
+        </thead>
+        <tbody id="movie-tbody"></tbody>
+      </table>
+    </div>
+    <p class="small muted gap-t" id="result-count"></p>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'movies' }).then(function () {
+      var E = MAISON.el;
+      var dates = MAISON_API.showDates();
+      var state = {
+        search: MAISON.qs('search') || '',
+        genre: MAISON.qs('genre') || '',
+        sort: MAISON.qs('sort') || 'popular',
+        date: (function (d) { return dates.indexOf(d) !== -1 ? d : dates[0]; })(MAISON.qs('date'))
+      };
+
+      function syncUrl() {
+        var p = new URLSearchParams();
+        if (state.search) { p.set('search', state.search); }
+        if (state.genre) { p.set('genre', state.genre); }
+        if (state.sort !== 'popular') { p.set('sort', state.sort); }
+        if (state.date !== dates[0]) { p.set('date', state.date); }
+        var q = p.toString();
+        history.replaceState(null, '', 'movies.html' + (q ? '?' + q : ''));
+      }
+
+      /* แถบเลือกวัน (วันนี้ + 5 วันข้างหน้า รวม 6 วัน) */
+      function renderDates() {
+        var strip = document.getElementById('date-strip');
+        MAISON.dateStrip(strip, dates, state.date, {
+          onPick: function (iso) { state.date = iso; syncUrl(); renderDates(); load(); }
+        });
+      }
+
+      /* ชิปกรองแนว */
+      function renderChips() {
+        var box = document.getElementById('genre-chips');
+        box.innerHTML = '';
+        var all = E('button', 'chip' + (state.genre ? '' : ' active'), 'ทั้งหมด');
+        all.type = 'button';
+        all.addEventListener('click', function () { state.genre = ''; syncUrl(); renderChips(); load(); });
+        box.appendChild(all);
+        MAISON_API.genres.forEach(function (g) {
+          var chip = E('button', 'chip' + (state.genre === g ? ' active' : ''), MAISON.genreThai(g));
+          chip.type = 'button';
+          chip.addEventListener('click', function () { state.genre = g; syncUrl(); renderChips(); load(); });
+          box.appendChild(chip);
+        });
+      }
+
+      var debounceTimer = null;
+      var searchEl = document.getElementById('search');
+      var sortEl = document.getElementById('sort');
+      searchEl.value = state.search;
+      sortEl.value = state.sort;
+      searchEl.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () { state.search = searchEl.value.trim(); syncUrl(); load(); }, 280);
+      });
+      sortEl.addEventListener('change', function () { state.sort = sortEl.value; syncUrl(); load(); });
+
+      function statusBadge(m) {
+        var b = E('span');
+        if (m.status === 'available') { b.className = 'badge badge-success'; b.textContent = 'มีที่นั่ง'; }
+        else if (m.status === 'full') { b.className = 'badge badge-danger'; b.textContent = 'รอบเต็ม'; }
+        else { b.className = 'badge badge-muted'; b.textContent = 'ไม่มีรอบ'; }
+        return b;
+      }
+
+      function load() {
+        var tbody = document.getElementById('movie-tbody');
+        tbody.innerHTML = '';
+        tbody.appendChild(E('tr', null, '')).innerHTML =
+          '<td colspan="7"><div class="spinner" role="status" aria-label="กำลังโหลด"></div></td>';
+        MAISON_API.movies(state).then(function (res) {
+          tbody.innerHTML = '';
+          document.getElementById('result-count').textContent =
+            'พบ ' + res.total + ' เรื่อง' + (res.total ? '' : ' — ลองปรับคำค้นหาหรือตัวกรอง');
+          res.items.forEach(function (m) {
+            var tr = E('tr', 'clickable');
+            tr.setAttribute('data-od-id', 'movie-row-' + m.id);
+            var td1 = E('td');
+            var t = E('div', 'cell-title', m.title);
+            var sub = E('span', 'sub',
+              MAISON.genresLabel(m.genres) + ' · ' + m.durationMin + ' นาที · ' + m.ageRating +
+              (m.director ? ' · ผกก. ' + m.director : ''));
+            t.appendChild(sub); td1.appendChild(t);
+            var td2 = E('td', 'price', MAISON.baht(m.price));
+            var tdHall = E('td', 'small-cell', m.hall || '—');
+            var tdRange = E('td', 'small-cell',
+              m.dateStart ? MAISON.thDate(m.dateStart) + ' – ' + MAISON.thDate(m.dateEnd) : '—');
+            var td3 = E('td'); td3.appendChild(statusBadge(m));
+            var td4 = E('td', null, m.availableShowtimes + ' / ' + m.showtimeCount + ' รอบ');
+            var td5 = E('td');
+            var btn = E('a', 'btn btn-secondary btn-sm', 'ดูรอบฉาย');
+            btn.href = 'movie.html?id=' + encodeURIComponent(m.id) + '&date=' + state.date;
+            td5.appendChild(btn);
+            [td1, td2, tdHall, tdRange, td3, td4, td5].forEach(function (td) { tr.appendChild(td); });
+            tr.addEventListener('click', function (ev) {
+              if (ev.target.closest('a')) { return; }
+              MAISON.go('movie.html?id=' + encodeURIComponent(m.id) + '&date=' + state.date);
+            });
+            tbody.appendChild(tr);
+          });
+        }).catch(MAISON.handleApiError);
+      }
+
+      renderDates();
+      renderChips();
+      load();
+    });
+  </script>
+</body>
+</html>

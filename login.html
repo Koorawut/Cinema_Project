@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบ — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="auth-wrap">
+    <div class="card auth-card" data-od-id="login-card">
+      <h1 class="auth-title">เข้าสู่ระบบ</h1>
+      <p class="auth-sub">ยินดีต้อนรับกลับสู่ MAISON — โรงภาพยนตร์เพื่อคนรักหนัง</p>
+      <div class="form-error-banner" id="form-error" hidden></div>
+      <form id="login-form">
+        <div class="field">
+          <label for="identifier">ชื่อผู้ใช้หรืออีเมล</label>
+          <input class="input" type="text" id="identifier" name="identifier" autocomplete="username" placeholder="เช่น demo หรือ demo@maison.demo" required>
+        </div>
+        <div class="field">
+          <label for="password">รหัสผ่าน</label>
+          <input class="input" type="password" id="password" name="password" autocomplete="current-password" placeholder="รหัสผ่านของคุณ" required>
+        </div>
+        <label class="checkbox-row" for="remember">
+          <input type="checkbox" id="remember" name="remember">
+          <span>จดจำการเข้าสู่ระบบไว้บนอุปกรณ์นี้</span>
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">เข้าสู่ระบบ</button>
+      </form>
+      <p class="auth-alt">ยังไม่มีบัญชี? <a href="register.html">สมัครสมาชิกใหม่</a></p>
+      <div class="demo-actions" data-od-id="demo-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="fill-demo">กรอกบัญชี demo อัตโนมัติ</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="fill-admin">กรอกบัญชีผู้ดูแลระบบ</button>
+      </div>
+      <div class="demo-cred">
+        บัญชีทดลองสำหรับระบบสาธิต — สมาชิก: <code>demo / demo123</code> · ผู้ดูแลระบบ: <code>admin / admin123</code>
+      </div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'home', redirectIfAuth: true }).then(function () {
+      var form = document.getElementById('login-form');
+      var errBox = document.getElementById('form-error');
+      var btn = document.getElementById('submit-btn');
+      var next = MAISON.qs('next');
+
+      /* ทางลัดกรอกบัญชีสาธิต (ยังต้องกด "เข้าสู่ระบบ" เองเพื่อให้เห็นขั้นตอนจริง) */
+      function fillDemo(identifier, password) {
+        errBox.hidden = true;
+        document.getElementById('identifier').value = identifier;
+        document.getElementById('password').value = password;
+        document.getElementById('identifier').focus();
+      }
+      document.getElementById('fill-demo').addEventListener('click', function () { fillDemo('demo', 'demo123'); });
+      document.getElementById('fill-admin').addEventListener('click', function () { fillDemo('admin', 'admin123'); });
+
+      /* ยอมรับเฉพาะหน้าภายในโปรเจกต์ (กันพาไปลิงก์ภายนอก) */
+      function safeNext() {
+        return (next && /^[A-Za-z0-9_-]+\.html(\?.*)?$/.test(next)) ? next : 'index.html';
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        errBox.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'กำลังตรวจสอบ...';
+        MAISON_API.login({
+          identifier: document.getElementById('identifier').value.trim(),
+          password: document.getElementById('password').value,
+          remember: document.getElementById('remember').checked
+        }).then(function (res) {
+          MAISON.toast('ยินดีต้อนรับกลับ คุณ' + res.user.username, 'success');
+          setTimeout(function () { MAISON.go(safeNext()); }, 400);
+        }).catch(function (err) {
+          errBox.textContent = err.message;
+          errBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'เข้าสู่ระบบ';
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>บัญชีผู้ใช้ — MAISON Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <div class="admin-shell">
+    <aside class="admin-sidebar" data-od-id="admin-sidebar">
+      <nav class="admin-nav" aria-label="เมนูผู้ดูแลระบบ">
+        <a href="admin.html">ภาพรวม</a>
+        <a href="admin-movies.html">ภาพยนตร์</a>
+        <a href="admin-accounts.html" aria-current="page">บัญชีผู้ใช้</a>
+        <a href="admin-promotions.html">คูปอง</a>
+      </nav>
+      <div class="as-foot">
+        <a class="section-link" href="index.html">&larr; กลับเว็บไซต์หลัก</a>
+      </div>
+    </aside>
+    <div class="admin-main">
+      <div class="page-head" data-od-id="admin-accounts-head">
+        <p class="eyebrow">ADMIN — ACCOUNTS</p>
+        <h1 class="page-title">บัญชีผู้ใช้</h1>
+        <p class="page-sub">จัดการสิทธิ์และบัญชีสมาชิกของระบบ — การลบบัญชีจะไม่ลบประวัติการจองของบัญชีนั้น</p>
+      </div>
+
+      <div class="toolbar" data-od-id="accounts-toolbar">
+        <input class="input" type="search" id="user-search" placeholder="ค้นหาชื่อผู้ใช้หรืออีเมล..." aria-label="ค้นหาบัญชี">
+      </div>
+
+      <div class="table-wrap" data-od-id="accounts-table">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>บัญชี</th>
+              <th>บทบาท</th>
+              <th>การจอง</th>
+              <th>สมาชิกตั้งแต่</th>
+              <th><span class="sr-only">การกระทำ</span></th>
+            </tr>
+          </thead>
+          <tbody id="user-tbody"></tbody>
+        </table>
+      </div>
+      <p class="small muted gap-t" id="user-count"></p>
+    </div>
+  </div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ chrome: 'admin', guard: 'admin' }).then(function (ctx) {
+      var E = MAISON.el;
+      var me = ctx.user;
+      var searchEl = document.getElementById('user-search');
+      var debounceTimer = null;
+
+      function load() {
+        var tbody = document.getElementById('user-tbody');
+        tbody.innerHTML = '';
+        tbody.appendChild(E('tr', null, '')).innerHTML =
+          '<td colspan="5"><div class="spinner" role="status" aria-label="กำลังโหลด"></div></td>';
+
+        MAISON_API.adminUsers({ search: searchEl.value.trim() }).then(function (users) {
+          tbody.innerHTML = '';
+          document.getElementById('user-count').textContent = 'ทั้งหมด ' + users.length + ' บัญชี';
+
+          users.forEach(function (u) {
+            var tr = E('tr');
+            tr.setAttribute('data-od-id', 'user-row-' + u.id);
+
+            var tdAcc = E('td');
+            var name = E('div', 'cell-title', u.username + (u.id === me.id ? ' (คุณ)' : ''));
+            name.appendChild(E('span', 'sub', u.email));
+            tdAcc.appendChild(name);
+
+            var tdRole = E('td');
+            var select = E('select', 'select role-select');
+            select.setAttribute('aria-label', 'บทบาทของ ' + u.username);
+            ['user', 'admin'].forEach(function (r) {
+              var opt = E('option', null, r === 'user' ? 'สมาชิก' : 'ผู้ดูแลระบบ');
+              opt.value = r;
+              if (u.role === r) { opt.selected = true; }
+              select.appendChild(opt);
+            });
+            select.addEventListener('change', function () {
+              var role = select.value;
+              MAISON_API.adminSetRole(u.id, role).then(function () {
+                MAISON.toast('เปลี่ยนบทบาทของ ' + u.username + ' เรียบร้อย', 'success');
+                load();
+              }).catch(function (err) {
+                MAISON.handleApiError(err);
+                select.value = u.role;
+              });
+            });
+            tdRole.appendChild(select);
+
+            var tdBook = E('td', null, String(u.bookingCount));
+            var tdSince = E('td', null, MAISON.thDate(u.createdAt.slice(0, 10)));
+
+            var tdAct = E('td');
+            var del = E('button', 'btn-link danger', 'ลบบัญชี');
+            del.type = 'button';
+            del.addEventListener('click', function () {
+              MAISON.confirm({
+                title: 'ยืนยันการลบบัญชี',
+                message: 'ต้องการลบบัญชี "' + u.username + '" ใช่หรือไม่ — การลบบัญชีจะไม่ลบประวัติการจอง และย้อนกลับไม่ได้',
+                danger: true,
+                confirmText: 'ยืนยันการลบ'
+              }).then(function (yes) {
+                if (!yes) { return; }
+                MAISON_API.adminDeleteUser(u.id).then(function () {
+                  MAISON.toast('ลบบัญชี ' + u.username + ' เรียบร้อย', 'success');
+                  load();
+                }).catch(MAISON.handleApiError);
+              });
+            });
+            tdAct.appendChild(del);
+
+            [tdAcc, tdRole, tdBook, tdSince, tdAct].forEach(function (td) { tr.appendChild(td); });
+            tbody.appendChild(tr);
+          });
+        }).catch(MAISON.handleApiError);
+      }
+
+      searchEl.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(load, 280);
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

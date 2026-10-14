@@ -1,0 +1,34 @@
+{
+  "movies": [
+    { "id": "m01", "title": "Iron Requiem", "genres": ["Action"], "price": 260, "durationMin": 128, "ageRating": "ฉ 15+", "director": "N. Kraivich", "releaseDate": "2026-09-18", "nowShowing": true, "poster": "assets/img/poster-iron-requiem.svg", "synopsis": "สายลับคนสุดท้ายของหน่วยต้องกลับมาปิดคดีเก่าที่ไม่เคยแคล้วคลาด ก่อนที่เมืองจะจ่ายราคาแทนเขา" },
+    { "id": "m02", "title": "The Hollow Choir", "genres": ["Horror"], "price": 220, "durationMin": 104, "ageRating": "ฉ 18+", "director": "P. Sornthorn", "releaseDate": "2026-09-25", "nowShowing": true, "poster": "assets/img/poster-the-hollow-choir.svg", "synopsis": "บทเพลงสวดที่ดังขึ้นเองในโบสถ์ร้าง ไม่เคยตั้งใจให้ผู้ใดรอด และคืนนี้เพลงนั้นเลือกคนฟังเอง" },
+    { "id": "m03", "title": "Bangkok Bank Run", "genres": ["Comedy"], "price": 200, "durationMin": 112, "ageRating": "ฉ 13+", "director": "K. Thamanat", "releaseDate": "2026-10-02", "nowShowing": true, "poster": "assets/img/poster-bangkok-bank-run.svg", "synopsis": "พนักงานธนาคารผู้พบว่าวันเงินเดือนออก คือวันที่ทุกอย่างในชีวิตเลือกพังพร้อมกันในครั้งเดียว" },
+    { "id": "m04", "title": "Letters from Phuket", "genres": ["Drama"], "price": 240, "durationMin": 131, "ageRating": "ฉ 13+", "director": "S. Anongnard", "releaseDate": "2026-09-11", "nowShowing": true, "poster": "assets/img/poster-letters-from-phuket.svg", "synopsis": "จดหมายฉบับสุดท้ายที่ส่งไม่ถึง พาหญิงสาวกลับไปตามรอยฤดูร้อน และคำตอบที่รออยู่นานเกินไป" },
+    { "id": "m05", "title": "Orbit 9", "genres": ["Science Fiction"], "price": 300, "durationMin": 142, "ageRating": "ฉ 13+", "director": "R. Ekworomadu", "releaseDate": "2026-09-04", "nowShowing": true, "poster": "assets/img/poster-orbit-9.svg", "synopsis": "สถานีวิจัยลำสุดท้ายของมนุษยชาติรับสัญญาณที่ไม่ควรมีใครได้ยิน และเวลาเหลือน้อยกว่าที่ใครคิด" },
+    { "id": "m06", "title": "Two Rainy Seasons", "genres": ["Romance"], "price": 210, "durationMin": 118, "ageRating": "ท น่าดู", "director": "M. Charoenpok", "releaseDate": "2026-09-27", "nowShowing": true, "poster": "assets/img/poster-two-rainy-seasons.svg", "synopsis": "สองคน สองฤดูฝน และคำสัญญาเดียวที่ยังรอฝนกลับมาพิสูจน์ว่ามันเคยมีจริง" },
+    { "id": "m07", "title": "Silent Verdict", "genres": ["Thriller"], "price": 250, "durationMin": 122, "ageRating": "ฉ 15+", "director": "T. Vipada", "releaseDate": "2026-10-09", "nowShowing": true, "poster": "assets/img/poster-silent-verdict.svg", "synopsis": "คณะลูกขุนต้องตัดสินคดีที่หลักฐานทุกชิ้นบอกคนละเรื่อง และหนึ่งในนั้นกำลังโกหก" },
+    { "id": "m08", "title": "Dust and Ember", "genres": ["Western"], "price": 270, "durationMin": 136, "ageRating": "ฉ 15+", "director": "J. Calloway", "releaseDate": "2026-08-28", "nowShowing": true, "poster": "assets/img/poster-dust-and-ember.svg", "synopsis": "มือปืนชราออกเดินทางครั้งสุดท้าย เพื่อเผาข้อตกลงเก่าก่อนที่ไฟจะมาถึงตัวเขาเอง" },
+    { "id": "m09", "title": "Neon Province", "genres": ["Science Fiction"], "price": 300, "durationMin": 0, "ageRating": "ยังไม่ประกาศ", "director": "A. Phanuwat", "releaseDate": null, "comingDays": 10, "nowShowing": false, "poster": "", "synopsis": "เมืองที่ความทรงจำถูกซื้อขายได้ กำลังจะได้เจอลูกค้าที่จ่ายด้วยอดีตของคนอื่น" },
+    { "id": "m10", "title": "The Cartographer’s Daughter", "genres": ["Drama"], "price": 230, "durationMin": 0, "ageRating": "ยังไม่ประกาศ", "director": "L. Benson", "releaseDate": null, "comingDays": 17, "nowShowing": false, "poster": "", "synopsis": "แผนที่ฉบับสุดท้ายของบิดา พาลูกสาวออกเดินทางไปยังดินแดนที่ไม่มีในแผนที่ใด" },
+    { "id": "m11", "title": "Midnight Siamese", "genres": ["Thriller"], "price": 250, "durationMin": 0, "ageRating": "ยังไม่ประกาศ", "director": "W. Rattanaporn", "releaseDate": null, "comingDays": 24, "nowShowing": false, "poster": "", "synopsis": "แมวจริงของกรุงเทพฯ รู้ว่าใครลงมือในคืนที่ฝนไม่ตก และมันกำลังจะบอกคนผิด" }
+  ],
+  "promotions": [
+    { "id": "p01", "code": "MAISON20", "title": "ส่วนลด 20% วันพุธสำหรับสมาชิก", "image": "assets/img/promo-wednesday.svg",
+      "summary": "สมาชิก MAISON รับส่วนลด 20% ทุกที่นั่ง ทุกวันพุธ",
+      "details": "สมาชิก MAISON รับส่วนลด 20% จากราคาตั๋วปกติ ใช้ได้ทุกรอบฉายของวันพุธ ทั้งที่จองล่วงหน้าและซื้อหน้าโรง",
+      "terms": ["ใช้ได้ทุกวันพุธ ตลอดเดือนนี้", "ไม่รวมรอบพรีเมียร์และอีเวนต์พิเศษ", "เงื่อนไขการใช้ร่วมกับข้อเสนออื่นอยู่ระหว่างยืนยัน (P-08)"] },
+    { "id": "p02", "code": "EVENINGPAIR", "title": "Evening Pair — คู่รักค่ำคืน", "image": "assets/img/promo-evening-pair.svg",
+      "summary": "จับคู่รอบเย็น 2 ที่นั่งราคาพิเศษ พร้อมโพสต์คอร์น 1 ส่วน",
+      "details": "จอง 2 ที่นั่งเคียงกันในรอบ 18:00 ขึ้นไป รับราคาพิเศษคู่ละ 480 บาท พร้อมป๊อปคอร์น 1 ส่วน (ระบบสาธิต ยังไม่คำนวณส่วนลดจริง)",
+      "terms": ["รอบฉาย 18:00 ขึ้นไป ทุกวัน", "เลือกที่นั่งเคียงกัน 2 ที่นั่ง", "จำนวนจำกัดตามที่นั่งที่เหลือ"] },
+    { "id": "p03", "code": "FRIDAY180", "title": "First Show Fridays — รอบเช้าวันศุกร์", "image": "assets/img/promo-first-show.svg",
+      "summary": "ทุกที่นั่งราคา 180 บาท สำหรับรอบก่อน 15:00 ของวันศุกร์",
+      "details": "เริ่มสัปดาห์ใหม่ด้วยภาพยนตร์เรื่องโปรด รอบก่อน 15:00 ของทุกวันศุกร์ ทุกที่นั่งราคาเดียว 180 บาท (ระบบสาธิต ยังไม่คำนวณส่วนลดจริง)",
+      "terms": ["วันศุกร์เท่านั้น รอบก่อน 15:00", "ราคาเดียวทั่วโรง 180 บาท", "ไม่สามารถใช้ร่วมกับส่วนลดอื่น (รอยืนยันกติกา: P-08)"] }
+  ],
+  "users": [
+    { "id": "u-admin", "username": "admin", "email": "admin@maison.demo", "passHash": "", "role": "admin", "createdAt": "2026-09-01T09:00:00+07:00" },
+    { "id": "u-demo", "username": "demo", "email": "demo@maison.demo", "passHash": "", "role": "user", "createdAt": "2026-09-15T13:30:00+07:00" }
+  ],
+  "demoPasswordHints": { "admin": "admin123", "demo": "demo123" }
+}

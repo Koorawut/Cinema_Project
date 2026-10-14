@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>จัดการคูปอง — MAISON Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <div class="admin-shell">
+    <aside class="admin-sidebar" data-od-id="admin-sidebar">
+      <nav class="admin-nav" aria-label="เมนูผู้ดูแลระบบ">
+        <a href="admin.html">ภาพรวม</a>
+        <a href="admin-movies.html">ภาพยนตร์</a>
+        <a href="admin-accounts.html">บัญชีผู้ใช้</a>
+        <a href="admin-promotions.html" aria-current="page">คูปอง</a>
+      </nav>
+      <div class="as-foot"><a class="section-link" href="index.html">&larr; กลับเว็บไซต์หลัก</a></div>
+    </aside>
+    <main class="admin-main" data-od-id="admin-promotions">
+      <div class="page-head">
+        <p class="eyebrow">ADMIN — OFFERS</p>
+        <h1 class="page-title">จัดการคูปอง</h1>
+        <p class="page-sub">คูปองที่แสดงบนหน้าโปรโมชันและหน้าแรก ข้อมูลนี้ใช้สำหรับสาธิตและยังไม่คำนวณส่วนลดจริง</p>
+      </div>
+      <div class="toolbar" data-od-id="promotion-toolbar">
+        <p class="small muted" id="promotion-count" aria-live="polite"></p>
+        <div class="spacer"></div>
+        <button type="button" class="btn btn-primary" id="add-promotion" data-od-id="add-promotion">+ เพิ่มคูปอง</button>
+      </div>
+      <div class="table-wrap" data-od-id="promotion-table">
+        <table class="data">
+          <thead><tr><th>รูปภาพ</th><th>รหัส</th><th>ชื่อและรายละเอียด</th><th>การกระทำ</th></tr></thead>
+          <tbody id="promotion-rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ chrome: 'admin', guard: 'admin' }).then(function () {
+      var E = MAISON.el;
+      var rows = document.getElementById('promotion-rows');
+      function load() {
+        MAISON_API.adminPromotions().then(function (items) {
+          rows.innerHTML = '';
+          document.getElementById('promotion-count').textContent = 'คูปองที่มีอยู่ ' + items.length + ' รายการ';
+          if (!items.length) {
+            var empty = E('tr'); var cell = E('td', null, 'ยังไม่มีคูปอง กดเพิ่มคูปองเพื่อเริ่มต้น');
+            cell.colSpan = 4; empty.appendChild(cell); rows.appendChild(empty);
+          }
+          items.forEach(function (p) {
+            var row = E('tr'); row.setAttribute('data-od-id', 'coupon-' + p.id);
+            var media = E('td');
+            if (p.image) { var img = E('img', 'file-preview'); img.src = p.image; img.alt = 'ภาพโปรโมชัน ' + p.title; media.appendChild(img); }
+            else { media.textContent = 'ไม่มีภาพ'; }
+            var code = E('td', 'cell-title', p.code);
+            var desc = E('td'); desc.appendChild(E('div', 'cell-title', p.title)); desc.appendChild(E('span', 'sub', p.summary));
+            var act = E('td'); var wrap = E('div', 'row-actions');
+            var edit = E('button', 'btn-link', 'แก้ไข'); edit.type = 'button';
+            edit.addEventListener('click', function () { openForm(p); });
+            var del = E('button', 'btn-link danger', 'ลบ'); del.type = 'button';
+            del.addEventListener('click', function () {
+              MAISON.confirm({ title: 'ยืนยันการลบคูปอง', message: 'ลบรหัส ' + p.code + ' ออกจากหน้าโปรโมชันและหน้าแรกใช่หรือไม่', danger: true, confirmText: 'ยืนยันการลบ' }).then(function (yes) {
+                if (!yes) { return; }
+                MAISON_API.adminDeletePromotion(p.id).then(function () { MAISON.toast('ลบคูปองแล้ว', 'success'); load(); }).catch(MAISON.handleApiError);
+              });
+            });
+            wrap.appendChild(edit); wrap.appendChild(del); act.appendChild(wrap);
+            [media, code, desc, act].forEach(function (td) { row.appendChild(td); }); rows.appendChild(row);
+          });
+        }).catch(MAISON.handleApiError);
+      }
+      function openForm(existing) {
+        var isEdit = !!existing;
+        var p = existing || { code: '', title: '', summary: '', details: '', terms: [], image: '' };
+        var d = MAISON.dialog({ title: isEdit ? 'แก้ไขคูปอง' : 'เพิ่มคูปอง', bodyHTML:
+          '<form class="form-grid" id="promotion-form">' +
+          '<p class="form-error-banner span-2" id="promotion-error" hidden></p>' +
+          '<div class="field"><label for="promo-code">รหัสคูปอง</label><input class="input" id="promo-code" required maxlength="24" value="' + MAISON.esc(p.code) + '"></div>' +
+          '<div class="field"><label for="promo-title">ชื่อคูปอง</label><input class="input" id="promo-title" required maxlength="100" value="' + MAISON.esc(p.title) + '"></div>' +
+          '<div class="field span-2"><label for="promo-summary">คำอธิบายสั้น</label><input class="input" id="promo-summary" required maxlength="240" value="' + MAISON.esc(p.summary) + '"></div>' +
+          '<div class="field span-2"><label for="promo-details">รายละเอียดคูปอง</label><textarea class="input" id="promo-details" required maxlength="1200" rows="4">' + MAISON.esc(p.details) + '</textarea></div>' +
+          '<div class="field span-2"><label for="promo-terms">เงื่อนไข (หนึ่งข้อต่อบรรทัด ไม่เกิน 8 ข้อ)</label><textarea class="input" id="promo-terms" rows="4">' + MAISON.esc(p.terms.join('\n')) + '</textarea></div>' +
+          '<div class="field span-2"><label for="promo-image">แนบภาพโปรโมชันใหม่ (PNG, JPEG, WebP ไม่เกิน 180 KB)</label><input class="input" id="promo-image" type="file" accept="image/png,image/jpeg,image/webp">' +
+          (p.image ? '<p class="field-hint">หากไม่เลือกไฟล์ จะใช้ภาพเดิม</p><img class="file-preview" alt="ภาพโปรโมชันปัจจุบัน" src="' + MAISON.esc(p.image) + '">' : '') + '</div>' +
+          '<div class="modal-actions span-2"><button class="btn btn-secondary" type="button" id="promo-cancel">ยกเลิก</button><button class="btn btn-primary" type="submit" id="promo-save">บันทึก</button></div></form>'
+        });
+        d.el.classList.add('modal-wide');
+        d.body.querySelector('#promo-cancel').addEventListener('click', d.close);
+        d.body.querySelector('#promotion-form').addEventListener('submit', function (event) {
+          event.preventDefault();
+          var error = d.body.querySelector('#promotion-error');
+          var save = d.body.querySelector('#promo-save');
+          error.hidden = true; save.disabled = true; save.textContent = 'กำลังบันทึก...';
+          var payload = {
+            code: d.body.querySelector('#promo-code').value,
+            title: d.body.querySelector('#promo-title').value,
+            summary: d.body.querySelector('#promo-summary').value,
+            details: d.body.querySelector('#promo-details').value,
+            terms: d.body.querySelector('#promo-terms').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
+          };
+          MAISON.readImage(d.body.querySelector('#promo-image').files[0]).then(function (image) {
+            if (image) { payload.image = image; }
+            return isEdit ? MAISON_API.adminUpdatePromotion(p.id, payload) : MAISON_API.adminCreatePromotion(payload);
+          }).then(function () {
+            d.close(); MAISON.toast(isEdit ? 'แก้ไขคูปองแล้ว' : 'เพิ่มคูปองแล้ว', 'success'); load();
+          }).catch(function (err) {
+            error.textContent = err.message; error.hidden = false; save.disabled = false; save.textContent = 'บันทึก';
+          });
+        });
+      }
+      document.getElementById('add-promotion').addEventListener('click', function () { openForm(null); });
+      load();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>จัดการภาพยนตร์ — MAISON Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <div class="admin-shell">
+    <aside class="admin-sidebar" data-od-id="admin-sidebar">
+      <nav class="admin-nav" aria-label="เมนูผู้ดูแลระบบ">
+        <a href="admin.html">ภาพรวม</a>
+        <a href="admin-movies.html" aria-current="page">ภาพยนตร์</a>
+        <a href="admin-accounts.html">บัญชีผู้ใช้</a>
+        <a href="admin-promotions.html">คูปอง</a>
+      </nav>
+      <div class="as-foot">
+        <a class="section-link" href="index.html">&larr; กลับเว็บไซต์หลัก</a>
+      </div>
+    </aside>
+    <div class="admin-main">
+      <div class="page-head" data-od-id="admin-movies-head">
+        <p class="eyebrow">ADMIN — MOVIES</p>
+        <h1 class="page-title">จัดการภาพยนตร์</h1>
+        <p class="page-sub">เพิ่ม แก้ไข และลบภาพยนตร์ — การลบเรื่องที่เคยถูกจองจะไม่ลบประวัติการจองเดิม</p>
+      </div>
+
+      <div class="toolbar" data-od-id="movies-toolbar">
+        <input class="input" type="search" id="movie-search" placeholder="ค้นหาชื่อภาพยนตร์..." aria-label="ค้นหาภาพยนตร์">
+        <div class="spacer"></div>
+        <button type="button" class="btn btn-primary" id="add-movie-btn">+ เพิ่มภาพยนตร์</button>
+      </div>
+
+      <div class="table-wrap" data-od-id="admin-movies-table">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>ภาพยนตร์</th>
+              <th>ราคา</th>
+              <th>โรง/ตารางฉาย</th>
+              <th>เรตติ้ง</th>
+              <th>สถานะวันนี้</th>
+              <th>เข้าฉาย</th>
+              <th>การกระทำ</th>
+            </tr>
+          </thead>
+          <tbody id="admin-movie-tbody"></tbody>
+        </table>
+      </div>
+      <p class="small muted gap-t" id="admin-movie-count"></p>
+    </div>
+  </div>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ chrome: 'admin', guard: 'admin' }).then(function () {
+      var E = MAISON.el;
+      var esc = MAISON.esc;
+      var tbody = document.getElementById('admin-movie-tbody');
+      var searchEl = document.getElementById('movie-search');
+      var debounceTimer = null;
+
+      function statusBadge(todayStatus) {
+        if (todayStatus === 'available') { return '<span class="badge badge-success">มีที่นั่งวันนี้</span>'; }
+        if (todayStatus === 'full') { return '<span class="badge badge-danger">รอบเต็มวันนี้</span>'; }
+        if (todayStatus === 'noshow') { return '<span class="badge badge-muted">ไม่มีรอบวันนี้</span>'; }
+        return '<span class="badge badge-muted">ยังไม่ฉาย</span>';
+      }
+
+      /* สรุปตารางฉาย 2 บรรทัด: โรง+ช่วงเวลา / ช่วงวันที่ */
+      function schedCell(m) {
+        if (!m.nowShowing || !m.hall) { return '<span class="small muted">—</span>'; }
+        var line1 = esc(m.hall) + ' · ' + (m.periodLabels.length
+          ? m.periodLabels.map(function (p) { return 'รอบ' + esc(p); }).join(' ')
+          : 'ไม่ระบุ');
+        var line2 = m.dateStart ? esc(MAISON.thDate(m.dateStart)) + ' – ' + esc(MAISON.thDate(m.dateEnd)) : '';
+        return '<div class="small-cell">' + line1 + '<br>' + line2 + '</div>';
+      }
+
+      function load() {
+        tbody.innerHTML = '';
+        tbody.appendChild(E('tr', null, '')).innerHTML =
+          '<td colspan="7"><div class="spinner" role="status" aria-label="กำลังโหลด"></div></td>';
+        MAISON_API.adminMovies({ search: searchEl.value.trim() }).then(function (movies) {
+          tbody.innerHTML = '';
+          document.getElementById('admin-movie-count').textContent = 'ทั้งหมด ' + movies.length + ' เรื่อง';
+          movies.forEach(function (m) {
+            var tr = E('tr');
+            tr.setAttribute('data-od-id', 'admin-movie-row-' + m.id);
+            var td1 = E('td');
+            var t = E('div', 'cell-title', m.title);
+            t.appendChild(E('span', 'sub',
+              MAISON.genresLabel(m.genres) + (m.durationMin ? ' · ' + m.durationMin + ' นาที' : '') +
+              (m.director ? ' · ผกก. ' + m.director : '')));
+            td1.appendChild(t);
+            var td2 = E('td', 'price', MAISON.baht(m.price));
+            var tdSched = E('td', null, '');
+            tdSched.innerHTML = schedCell(m);
+            var td3 = E('td', null, m.ageRating);
+            var td4 = E('td', null, '');
+            td4.innerHTML = statusBadge(m.todayStatus);
+            var td5 = E('td', null, m.releaseDate ? MAISON.thDate(m.releaseDate) : '—');
+            var td6 = E('td');
+            var actions = E('div', 'row-actions');
+            var edit = E('button', 'btn-link', 'แก้ไข');
+            edit.type = 'button';
+            edit.addEventListener('click', function () { openMovieDialog(m); });
+            var del = E('button', 'btn-link danger', 'ลบ');
+            del.type = 'button';
+            del.addEventListener('click', function () {
+              MAISON.confirm({
+                title: 'ยืนยันการลบภาพยนตร์',
+                message: 'ต้องการลบ "' + m.title + '" ใช่หรือไม่ — ประวัติการจองที่ผ่านมาจะยังแสดงชื่อเรื่องนี้ต่อ และย้อนกลับไม่ได้',
+                danger: true,
+                confirmText: 'ยืนยันการลบ'
+              }).then(function (yes) {
+                if (!yes) { return; }
+                MAISON_API.adminDeleteMovie(m.id).then(function (out) {
+                  MAISON.toast('ลบ "' + out.removedTitle + '" เรียบร้อย (ประวัติการจองเดิมยังคงอยู่)', 'success');
+                  load();
+                }).catch(MAISON.handleApiError);
+              });
+            });
+            actions.appendChild(edit);
+            actions.appendChild(del);
+            td6.appendChild(actions);
+
+            [td1, td2, tdSched, td3, td4, td5, td6].forEach(function (td) { tr.appendChild(td); });
+            tbody.appendChild(tr);
+          });
+        }).catch(MAISON.handleApiError);
+      }
+
+      /* ---------- กล่องโต้ตอบเพิ่ม/แก้ไขภาพยนตร์ ---------- */
+      var AGE_OPTIONS = ['ท น่าดู', 'ฉ 13+', 'ฉ 15+', 'ฉ 18+', 'ยังไม่ประกาศ'];
+      var winDates = MAISON_API.showDates();
+
+      function openMovieDialog(existing) {
+        var isEdit = !!existing;
+        var defHall = isEdit && existing.hallId ? existing.hallId : MAISON_API.halls[0].id;
+        var defStart = isEdit && existing.dateStart ? existing.dateStart : winDates[0];
+        var defEnd = isEdit && existing.dateEnd ? existing.dateEnd : winDates[winDates.length - 1];
+        var defPeriods = isEdit && existing.periods && existing.periods.length ? existing.periods : ['evening'];
+        var d = MAISON.dialog({
+          title: isEdit ? 'แก้ไขภาพยนตร์' : 'เพิ่มภาพยนตร์ใหม่',
+          bodyHTML:
+            '<form class="form-grid" id="movie-form">' +
+            '  <div class="form-error-banner span-2" id="mf-error" hidden></div>' +
+            '  <div class="field span-2"><label for="mf-title">ชื่อภาพยนตร์</label>' +
+            '    <input class="input" id="mf-title" required value="' + (isEdit ? esc(existing.title) : '') + '"></div>' +
+            '  <div class="field"><label for="mf-genre">แนวภาพยนตร์</label><select class="select" id="mf-genre">' +
+            MAISON_API.genres.map(function (g) {
+              return '<option value="' + esc(g) + '"' + (isEdit && existing.genres.indexOf(g) !== -1 ? ' selected' : '') + '>' + esc(MAISON.genreThai(g)) + '</option>';
+            }).join('') +
+            '  </select></div>' +
+            '  <div class="field"><label for="mf-price">ราคา (บาท)</label>' +
+            '    <input class="input" id="mf-price" type="number" min="0" max="5000" step="10" required value="' + (isEdit ? esc(existing.price) : 220) + '"></div>' +
+            '  <div class="field"><label for="mf-duration">ระยะเวลา (นาที)</label>' +
+            '    <input class="input" id="mf-duration" type="number" min="0" max="300" value="' + (isEdit && existing.durationMin ? esc(existing.durationMin) : 110) + '"></div>' +
+            '  <div class="field"><label for="mf-age">เรตติ้ง</label><select class="select" id="mf-age">' +
+            AGE_OPTIONS.map(function (a) {
+              return '<option' + (isEdit && existing.ageRating === a ? ' selected' : '') + '>' + esc(a) + '</option>';
+            }).join('') +
+            '  </select></div>' +
+            '  <div class="field"><label for="mf-director">ผู้กำกับ</label>' +
+            '    <input class="input" id="mf-director" value="' + (isEdit ? esc(existing.director || '') : '') + '"></div>' +
+            '  <div class="field"><label for="mf-release">วันเข้าฉาย</label>' +
+            '    <input class="input" id="mf-release" type="date" value="' + (isEdit && existing.releaseDate ? esc(existing.releaseDate) : '') + '"></div>' +
+            '  <label class="checkbox-row span-2" for="mf-showing">' +
+            '    <input type="checkbox" id="mf-showing"' + (!isEdit || existing.nowShowing ? ' checked' : '') + '>' +
+            '    <span>กำลังฉาย (เปิดขายตั๋วตามตารางฉายด้านล่าง)</span></label>' +
+            '  <div class="span-2" id="mf-sched">' +
+            '    <div class="sched-grid">' +
+            '      <div class="field"><label for="mf-hall">โรงฉาย</label><select class="select" id="mf-hall">' +
+            MAISON_API.halls.map(function (h) {
+              return '<option value="' + esc(h.id) + '"' + (defHall === h.id ? ' selected' : '') + '>' + esc(h.name) + '</option>';
+            }).join('') +
+            '      </select></div>' +
+            '      <div class="field"><label for="mf-start">วันเริ่มฉาย</label>' +
+            '        <input class="input" id="mf-start" type="date" value="' + esc(defStart) + '"></div>' +
+            '      <div class="field"><label for="mf-end">วันสิ้นสุดฉาย</label>' +
+            '        <input class="input" id="mf-end" type="date" value="' + esc(defEnd) + '"></div>' +
+            '    </div>' +
+            '    <div class="field"><label>ช่วงเวลาฉาย (เลือกได้หลายช่วง)</label>' +
+            '      <div class="period-checks">' +
+            MAISON_API.periods.map(function (p) {
+              return '<label class="period-check' + (defPeriods.indexOf(p.key) !== -1 ? ' on' : '') + '">' +
+                '<input type="checkbox" name="mf-period" value="' + esc(p.key) + '"' +
+                (defPeriods.indexOf(p.key) !== -1 ? ' checked' : '') + '>' +
+                '<span>รอบ' + esc(p.label) + ' (' + esc(p.time) + ' น.)</span></label>';
+            }).join('') +
+            '      </div>' +
+            '      <p class="field-hint">ระบบห้ามตารางชนกัน — ห้ามเรื่อง 2 เรื่องใช้โรงเดียวกัน+ช่วงเวลาเดียวกันในวันที่ซ้อนกัน</p>' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="field span-2"><label for="mf-synopsis">เรื่องย่อ</label>' +
+            '    <textarea class="input" id="mf-synopsis" rows="3">' + (isEdit ? esc(existing.synopsis || '') : '') + '</textarea></div>' +
+            '  <div class="field span-2"><label for="mf-poster">แนบโปสเตอร์ใหม่ (PNG, JPEG, WebP ไม่เกิน 180 KB)</label>' +
+            '    <input class="input" id="mf-poster" type="file" accept="image/png,image/jpeg,image/webp">' +
+            (isEdit && existing.poster ? '    <p class="field-hint">หากไม่เลือกไฟล์ จะใช้โปสเตอร์เดิม</p><img class="file-preview" alt="โปสเตอร์ปัจจุบัน" src="' + esc(existing.poster) + '">' : '') + '</div>' +
+            '  <div class="modal-actions span-2">' +
+            '    <button type="button" class="btn btn-secondary" id="mf-cancel">ยกเลิก</button>' +
+            '    <button type="submit" class="btn btn-primary" id="mf-save">บันทึก</button>' +
+            '  </div>' +
+            '</form>'
+        });
+        d.el.classList.add('modal-wide');
+
+        var form = d.body.querySelector('#movie-form');
+        var showingEl = d.body.querySelector('#mf-showing');
+        var schedBox = d.body.querySelector('#mf-sched');
+
+        /* ปิด/เปิดช่องตารางฉายตามสถานะ "กำลังฉาย" + ไฮไลต์ช่วงเวลาที่เลือก */
+        function syncSched() {
+          var on = showingEl.checked;
+          schedBox.querySelectorAll('input').forEach(function (inp) { inp.disabled = !on; });
+          schedBox.classList.toggle('sched-off', !on);
+          schedBox.querySelectorAll('.period-check input').forEach(function (inp) {
+            inp.parentNode.classList.toggle('on', inp.checked);
+          });
+        }
+        showingEl.addEventListener('change', syncSched);
+        schedBox.querySelectorAll('.period-check input').forEach(function (inp) {
+          inp.addEventListener('change', syncSched);
+        });
+        syncSched();
+
+        d.body.querySelector('#mf-cancel').addEventListener('click', d.close);
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var errBox = d.body.querySelector('#mf-error');
+          var saveBtn = d.body.querySelector('#mf-save');
+          errBox.hidden = true;
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'กำลังบันทึก...';
+
+          var periods = [];
+          schedBox.querySelectorAll('.period-check input:checked').forEach(function (inp) { periods.push(inp.value); });
+
+          var payload = {
+            title: d.body.querySelector('#mf-title').value,
+            genres: [d.body.querySelector('#mf-genre').value],
+            price: Number(d.body.querySelector('#mf-price').value),
+            durationMin: Number(d.body.querySelector('#mf-duration').value) || 0,
+            ageRating: d.body.querySelector('#mf-age').value,
+            director: d.body.querySelector('#mf-director').value,
+            releaseDate: d.body.querySelector('#mf-release').value || null,
+            synopsis: d.body.querySelector('#mf-synopsis').value,
+            nowShowing: showingEl.checked,
+            hallId: d.body.querySelector('#mf-hall').value,
+            dateStart: d.body.querySelector('#mf-start').value,
+            dateEnd: d.body.querySelector('#mf-end').value,
+            periods: periods
+          };
+
+          MAISON.readImage(d.body.querySelector('#mf-poster').files[0]).then(function (image) {
+            if (image) { payload.poster = image; }
+            return isEdit ? MAISON_API.adminUpdateMovie(existing.id, payload) : MAISON_API.adminCreateMovie(payload);
+          }).then(function () {
+            d.close();
+            MAISON.toast(isEdit ? 'บันทึกการแก้ไขเรียบร้อย' : 'เพิ่มภาพยนตร์เรียบร้อย', 'success');
+            load();
+          }).catch(function (err) {
+            errBox.textContent = err.message;
+            errBox.hidden = false;
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'บันทึก';
+          });
+        });
+      }
+
+      document.getElementById('add-movie-btn').addEventListener('click', function () { openMovieDialog(null); });
+      searchEl.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(load, 280);
+      });
+
+      load();
+    });
+  </script>
+</body>
+</html>

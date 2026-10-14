@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAISON Cinema — โรงภาพยนตร์เพื่อคนรักหนัง</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-dark">
+  <main>
+    <section class="hero" data-od-id="home-hero">
+      <div class="hero-bg"><img src="assets/img/hero.svg" alt="" onerror="this.parentNode.style.display='none'"></div>
+      <div class="container hero-inner">
+        <p class="eyebrow">ยินดีต้อนรับสู่ MAISON · เวอร์ชัน 1.4 (v1.4)</p>
+        <h1 class="hero-title">ฤดูกาลแห่งภาพยนตร์<br>ของคุณเริ่มต้นที่นี่</h1>
+        <p class="hero-sub">คัดสรรภาพยนตร์คุณภาพจากทุกมุมโลก พร้อมที่นั่งสะดวกสบายและบรรยากาศแบบโรงใหญ่ ใจกลางเมือง</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="movies.html">ดูภาพยนตร์ทั้งหมด</a>
+          <a class="btn btn-ghost" id="hero-second-btn" href="register.html">สมัครสมาชิก</a>
+        </div>
+        <div class="hero-meta" id="hero-meta"></div>
+      </div>
+    </section>
+    <div class="container">
+      <section class="section" data-od-id="home-top5">
+        <div class="section-head">
+          <h2 class="section-title">Top 5 ยอดนิยม</h2>
+          <a class="section-link" href="movies.html">ดูทั้งหมด</a>
+        </div>
+        <div class="top5-row" id="top5-row"></div>
+      </section>
+      <section class="section" data-od-id="home-promos">
+        <div class="section-head">
+          <h2 class="section-title">โปรโมชันประจำเดือน</h2>
+          <a class="section-link" href="offers.html">ดูโปรโมชันทั้งหมด</a>
+        </div>
+        <div class="offers-grid" id="promo-row"></div>
+      </section>
+      <section class="section" data-od-id="home-coming">
+        <div class="section-head">
+          <h2 class="section-title">กำลังจะมาถึง</h2>
+        </div>
+        <div class="coming-list" id="coming-list"></div>
+      </section>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'home' }).then(function (ctx) {
+      if (ctx.user) {
+        var second = document.getElementById('hero-second-btn');
+        second.textContent = 'จองตั๋วของคุณ';
+        second.href = 'movies.html';
+      }
+      var E = MAISON.el;
+
+      Promise.all([
+        MAISON_API.movies({ date: MAISON_API.showDates()[0] }),
+        MAISON_API.comingSoon(),
+        MAISON_API.promotions()
+      ]).then(function (all) {
+        var movies = all[0].items, coming = all[1], promos = all[2];
+
+        /* สถิติย่อบน hero */
+        var meta = document.getElementById('hero-meta');
+        meta.appendChild(E('div', null, '')).innerHTML =
+          '<strong>' + movies.length + '</strong>เรื่องกำลังฉาย';
+        meta.appendChild(E('div', null, '')).innerHTML =
+          '<strong>' + coming.length + '</strong>เรื่องกำลังจะมา';
+        meta.appendChild(E('div', null, '')).innerHTML =
+          '<strong>' + promos.length + '</strong>โปรโมชันน่าสนใจ';
+
+        /* Top 5 ตามยอดตั๋วขาย (เรียง popular จาก API) */
+        var row = document.getElementById('top5-row');
+        movies.slice(0, 5).forEach(function (m, i) {
+          var card = E('a', 'rank-card movie-card');
+          card.href = 'movie.html?id=' + encodeURIComponent(m.id);
+          var num = E('div', 'rank-num', String(i + 1));
+          var box = E('div', 'poster-box');
+          var img = E('img');
+          img.src = m.poster; img.alt = 'โปสเตอร์ ' + m.title; img.loading = 'lazy';
+          if (!m.poster) { img.removeAttribute('src'); img.alt = m.title; }
+          box.appendChild(img);
+          var body = E('div', 'mc-body');
+          body.appendChild(E('p', 'mc-title', m.title));
+          body.appendChild(E('p', 'mc-meta', MAISON.genresLabel(m.genres) + ' · ' + MAISON.baht(m.price)));
+          card.appendChild(num); card.appendChild(box); card.appendChild(body);
+          row.appendChild(card);
+        });
+
+        /* โปรโมชัน */
+        var prow = document.getElementById('promo-row');
+        promos.forEach(function (p) {
+          var card = E('article', 'card offer-card');
+          var media = E('div', 'offer-media');
+          if (p.image) {
+            var img = E('img'); img.src = p.image; img.alt = p.title; img.loading = 'lazy';
+            media.appendChild(img);
+          }
+          var body = E('div', 'offer-body');
+          body.appendChild(E('p', 'eyebrow', p.code));
+          body.appendChild(E('h3', null, p.title));
+          body.appendChild(E('p', 'small', p.summary));
+          body.appendChild(E('div', 'offer-spacer'));
+          var link = E('a', 'section-link', 'ดูรายละเอียดและเงื่อนไข');
+          link.href = 'offers.html';
+          body.appendChild(link);
+          card.appendChild(media); card.appendChild(body);
+          prow.appendChild(card);
+        });
+
+        /* กำลังจะมาถึง */
+        var crow = document.getElementById('coming-list');
+        coming.forEach(function (m) {
+          var card = E('article', 'card coming-card');
+          card.appendChild(E('p', 'genre', MAISON.genresLabel(m.genres)));
+          card.appendChild(E('h3', null, m.title));
+          card.appendChild(E('p', 'small muted', m.synopsis));
+          card.appendChild(E('p', 'small', 'ประมาณการเข้าฉาย: ' + MAISON.thDate(m.releaseDate)));
+          crow.appendChild(card);
+        });
+      }).catch(MAISON.handleApiError);
+    });
+  </script>
+</body>
+</html>

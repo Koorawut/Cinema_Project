@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตรวจทานและยืนยันการจอง — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="container" id="main">
+    <div class="page-head">
+      <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'movies', guard: 'user' }).then(function () {
+      var E = MAISON.el;
+      var main = document.getElementById('main');
+      var stId = MAISON.qs('st');
+      var seatParam = (MAISON.qs('seats') || '').split(',').filter(Boolean);
+
+      if (!stId || !seatParam.length) { MAISON.go('movies.html'); return; }
+
+      MAISON_API.seats(stId).then(function (res) {
+        var st = res.showtime, movie = res.movie, fee = res.serviceFee;
+
+        /* ตรวจว่าที่นั่งที่เลือกยังว่างอยู่ */
+        var taken = seatParam.filter(function (id) {
+          var s = res.seats.filter(function (x) { return x.id === id; })[0];
+          return !s || s.status === 'booked';
+        });
+
+        main.innerHTML = '';
+        var head = E('div', 'page-head');
+        head.appendChild(E('p', null, '')).innerHTML =
+          '<a class="section-link" href="seats.html?st=' + encodeURIComponent(stId) + '">&larr; แก้ไขที่นั่ง</a>';
+        head.appendChild(E('h1', 'page-title', 'ตรวจทานและยืนยันการจอง'));
+        head.appendChild(E('p', 'page-sub', 'โปรดตรวจสอบรายละเอียดก่อนกดยืนยัน — การจองสำเร็จแล้วแก้ไขที่นั่งไม่ได้'));
+        main.appendChild(head);
+
+        if (taken.length) {
+          var conflict = E('div', 'empty-state card');
+          conflict.appendChild(E('div', 'glyph', '!'));
+          conflict.appendChild(E('h2', null, 'ที่นั่งที่เลือกถูกจองไปแล้ว'));
+          conflict.appendChild(E('p', 'small', 'ที่นั่ง: ' + taken.join(', ')));
+          var back = E('a', 'btn btn-primary', 'กลับไปเลือกที่นั่งใหม่');
+          back.href = 'seats.html?st=' + encodeURIComponent(stId);
+          conflict.appendChild(back);
+          main.appendChild(conflict);
+          return;
+        }
+
+        var seatObjs = seatParam.map(function (id) {
+          return res.seats.filter(function (x) { return x.id === id; })[0];
+        }).sort(function (a, b) {
+          return a.row === b.row ? a.number - b.number : (a.row < b.row ? -1 : 1);
+        });
+
+        var grid = E('div', 'checkout-grid');
+        var left = E('div', 'card');
+        var body = E('div', 'card-body');
+        body.appendChild(E('h2', 'card-title', 'รายละเอียดการจอง'));
+
+        var lines = E('div', 'order-lines');
+        function line(lab, val, cls) {
+          var d = E('div', 'order-line');
+          var l = E('span', 'lab', lab);
+          var v = E('span', cls || null, val);
+          d.appendChild(l); d.appendChild(v);
+          return d;
+        }
+        lines.appendChild(line('ภาพยนตร์', movie.title + ' (' + movie.ageRating + ')'));
+        lines.appendChild(line('วันและเวลาฉาย', MAISON.thDate(st.date) + ' · รอบ' + st.periodLabel + ' เวลา ' + st.time + ' น.'));
+        lines.appendChild(line('โรงฉาย', st.hall));
+        lines.appendChild(line('ที่นั่ง (' + seatObjs.length + ' ที่นั่ง)', seatObjs.map(function (s) { return s.label; }).join(', ')));
+        lines.appendChild(line('ราคาตั๋ว ' + MAISON.baht(movie.price) + ' × ' + seatObjs.length, MAISON.baht(movie.price * seatObjs.length)));
+        lines.appendChild(line('ค่าบริการ ' + MAISON.baht(fee) + ' × ' + seatObjs.length, MAISON.baht(fee * seatObjs.length)));
+        body.appendChild(lines);
+
+        var note = E('p', 'illustrative-note',
+          'หน้านี้เป็นตัวอย่างขั้นตอนชำระเงินเพื่อการสาธิต (v1) — ระบบยังไม่มีการตัดเงินจริง และไม่ขอข้อมูลบัตรสินเชื่อใด ๆ');
+        body.appendChild(note);
+
+        var confirmBtn = E('button', 'btn btn-primary btn-block gap-t', 'ยืนยันการจอง');
+        confirmBtn.id = 'confirm-btn';
+        confirmBtn.type = 'button';
+        body.appendChild(confirmBtn);
+        left.appendChild(body);
+
+        var right = E('aside', 'summary-panel');
+        var rcard = E('div', 'card');
+        rcard.appendChild(E('h3', 'card-title', 'ยอดชำระ'));
+        var subtotal = E('div', 'summary-line');
+        subtotal.innerHTML = '<span class="lab">ค่าตั๋ว</span><span>' + MAISON.baht(movie.price * seatObjs.length) + '</span>';
+        var feeLine = E('div', 'summary-line');
+        feeLine.innerHTML = '<span class="lab">ค่าบริการ</span><span>' + MAISON.baht(fee * seatObjs.length) + '</span>';
+        var total = E('div', 'summary-total');
+        total.innerHTML = '<span>รวมทั้งสิ้น</span><span class="amt"></span>';
+        total.querySelector('.amt').textContent = MAISON.baht((movie.price + fee) * seatObjs.length);
+        rcard.appendChild(subtotal);
+        rcard.appendChild(feeLine);
+        rcard.appendChild(total);
+        var statusLine = E('p', 'small muted', 'สถานะ: รอการยืนยัน');
+        statusLine.id = 'status-line';
+        rcard.appendChild(statusLine);
+        right.appendChild(rcard);
+
+        grid.appendChild(left);
+        grid.appendChild(right);
+        main.appendChild(grid);
+
+        confirmBtn.addEventListener('click', function () {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'กำลังยืนยันการจอง...';
+          statusLine.textContent = 'สถานะ: กำลังดำเนินการ...';
+          MAISON_API.createBooking({ showtimeId: stId, seatIds: seatParam }).then(function (out) {
+            MAISON.toast('ยืนยันการจองสำเร็จ รหัสการจอง ' + out.booking.code, 'success');
+            setTimeout(function () { MAISON.go('ticket.html?id=' + encodeURIComponent(out.booking.id)); }, 450);
+          }).catch(function (err) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'ยืนยันการจอง';
+            statusLine.textContent = 'สถานะ: รอการยืนยัน';
+            if (err.status === 409) {
+              MAISON.toast(err.message, 'error');
+              setTimeout(function () { MAISON.go('seats.html?st=' + encodeURIComponent(stId)); }, 900);
+            } else {
+              MAISON.handleApiError(err);
+            }
+          });
+        });
+      }).catch(function (err) {
+        main.innerHTML = '';
+        var empty = E('div', 'empty-state card');
+        empty.appendChild(E('div', 'glyph', '!'));
+        empty.appendChild(E('h2', null, 'ไม่พบรอบฉายนี้'));
+        empty.appendChild(E('p', 'small', err.message));
+        var back = E('a', 'btn btn-secondary', 'กลับไปหน้าภาพยนตร์');
+        back.href = 'movies.html';
+        empty.appendChild(back);
+        main.appendChild(empty);
+      });
+    });
+  </script>
+</body>
+</html>

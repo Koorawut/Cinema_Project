@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#282013"/>
+      <stop offset="1" stop-color="#120E08"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1200" fill="url(#bg)"/>
+  <g opacity="0.3">
+    <rect x="500" y="140" width="150" height="90" fill="none" stroke="#C9B485" stroke-width="2"/>
+    <rect x="560" y="250" width="150" height="90" fill="none" stroke="#EAE2CF" stroke-width="2" opacity="0.7"/>
+    <rect x="470" y="360" width="150" height="90" fill="none" stroke="#C9B485" stroke-width="2"/>
+    <rect x="540" y="470" width="150" height="90" fill="none" stroke="#EAE2CF" stroke-width="2" opacity="0.5"/>
+  </g>
+  <g fill="#C9B485" opacity="0.85">
+    <circle cx="130" cy="330" r="14"/>
+    <circle cx="180" cy="380" r="10"/>
+    <circle cx="140" cy="430" r="8"/>
+  </g>
+  <text x="70" y="160" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="8" fill="#C9B485">MAISON PRESENTS</text>
+  <text x="70" y="206" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="5" fill="#D8C9A0" opacity="0.75">COMEDY</text>
+  <text x="70" y="600" font-family="Georgia, 'Times New Roman', serif" font-size="88" font-weight="bold" fill="#F2EFE7">Bangkok</text>
+  <text x="70" y="695" font-family="Georgia, 'Times New Roman', serif" font-size="88" font-weight="bold" fill="#F2EFE7">Bank Run</text>
+  <text x="70" y="765" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#A3A89F">วันเงินเดือนออก คือวันที่ทุกอย่างพร้อมพัง</text>
+  <rect x="70" y="1020" width="120" height="3" fill="#C9B485"/>
+  <text x="70" y="1072" font-family="Georgia, 'Times New Roman', serif" font-size="18" letter-spacing="4" fill="#A3A89F">NOW SHOWING AT MAISON</text>
+  <text x="70" y="1104" font-family="Georgia, 'Times New Roman', serif" font-size="16" fill="#6E736B">HALL 01 · 4 SHOWTIMES DAILY</text>
+</svg>

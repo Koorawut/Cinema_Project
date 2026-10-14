@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เลือกที่นั่ง — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-dark">
+  <main class="container" id="main">
+    <div class="page-head">
+      <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'movies', guard: 'user' }).then(function () {
+      var E = MAISON.el;
+      var main = document.getElementById('main');
+      var stId = MAISON.qs('st');
+
+      if (!stId) { MAISON.go('movies.html'); return; }
+
+      MAISON_API.seats(stId).then(function (res) {
+        var st = res.showtime, movie = res.movie, fee = res.serviceFee;
+
+        main.innerHTML = '';
+        var head = E('div', 'page-head');
+        head.appendChild(E('p', null, '')).innerHTML =
+          '<a class="section-link" href="movie.html?id=' + encodeURIComponent(st.movieId) +
+          '&amp;date=' + MAISON.esc(st.date) + '">&larr; เปลี่ยนรอบฉาย</a>';
+        head.appendChild(E('h1', 'page-title', 'เลือกที่นั่ง'));
+        head.appendChild(E('p', 'page-sub',
+          movie.title + ' · ' + MAISON.thDate(st.date) + ' เวลา ' + st.time + ' น. · ' + st.hall));
+        main.appendChild(head);
+
+        if (st.status === 'full') {
+          var empty = E('div', 'empty-state card');
+          empty.appendChild(E('div', 'glyph', '!'));
+          empty.appendChild(E('h2', null, 'รอบฉายนี้เต็มแล้ว'));
+          empty.appendChild(E('p', 'small', 'กรุณาเลือกวันหรือรอบฉายอื่น'));
+          var back = E('a', 'btn btn-secondary', 'เลือกรอบอื่น');
+          back.href = 'movie.html?id=' + encodeURIComponent(st.movieId);
+          empty.appendChild(back);
+          main.appendChild(empty);
+          return;
+        }
+
+        var page = E('div', 'seat-page');
+        var left = E('div');
+
+        var screen = E('div', 'screen-bar', 'จอภาพยนตร์');
+        left.appendChild(screen);
+
+        var map = E('div', 'seat-map');
+        map.id = 'seat-map';
+        map.setAttribute('role', 'group');
+        map.setAttribute('aria-label', 'แผนผังที่นั่ง ' + st.hall);
+        left.appendChild(map);
+
+        var legend = E('div', 'seat-legend');
+        [['sw-free', 'ว่าง'], ['sw-sel', 'ที่เลือก'], ['sw-booked', 'จองแล้ว']].forEach(function (pair) {
+          var key = E('span', 'key');
+          var sw = E('span', 'swatch ' + pair[0]);
+          key.appendChild(sw);
+          key.appendChild(E('span', null, pair[1]));
+          legend.appendChild(key);
+        });
+        left.appendChild(legend);
+
+        var note = E('p', 'small muted center gap-t',
+          'ที่นั่งชั้น A–B อยู่ใกล้จอที่สุด · ทุกที่นั่งเป็นที่นั่งปกติราคาเดียวกัน');
+        left.appendChild(note);
+
+        var panel = E('aside', 'summary-panel');
+        var card = E('div', 'card');
+        card.setAttribute('data-od-id', 'seat-summary');
+        card.appendChild(E('h3', 'card-title', 'สรุปการจอง'));
+        var lines = E('div');
+        lines.innerHTML =
+          '<div class="summary-line"><span class="lab">ภาพยนตร์</span><span></span></div>' +
+          '<div class="summary-line"><span class="lab">รอบฉาย</span><span></span></div>' +
+          '<div class="summary-line"><span class="lab">โรงฉาย</span><span></span></div>';
+        var labRows = lines.querySelectorAll('.summary-line');
+        labRows[0].lastChild.textContent = movie.title;
+        labRows[1].lastChild.textContent = MAISON.thDate(st.date) + ' ' + st.time + ' น.';
+        labRows[2].lastChild.textContent = st.hall;
+        while (lines.firstChild) { card.appendChild(lines.firstChild); }
+
+        var pickedRow = E('div', 'summary-line');
+        pickedRow.innerHTML = '<span class="lab">ที่นั่งที่เลือก</span>';
+        var pickedBox = E('span', 'seats-picked');
+        pickedRow.appendChild(pickedBox);
+        card.appendChild(pickedRow);
+
+        var unitRow = E('div', 'summary-line');
+        unitRow.innerHTML = '<span class="lab">ราคาต่อที่นั่ง</span><span>' + MAISON.baht(movie.price) + '</span>';
+        card.appendChild(unitRow);
+        var feeRow = E('div', 'summary-line');
+        feeRow.innerHTML = '<span class="lab">ค่าบริการต่อที่นั่ง</span><span>' + MAISON.baht(fee) + '</span>';
+        card.appendChild(feeRow);
+
+        var totalRow = E('div', 'summary-total');
+        var totalLab = E('span', null, 'รวมทั้งสิ้น');
+        var totalAmt = E('span', 'amt', MAISON.baht(0));
+        totalRow.appendChild(totalLab);
+        totalRow.appendChild(totalAmt);
+        card.appendChild(totalRow);
+
+        var holdNote = E('p', 'hold-note',
+          'การเลือกที่นั่งยังไม่ถูกจองล็อกไว้ — ที่นั่งจะได้รับการยืนยันเมื่อการจองสำเร็จเท่านั้น หากมีผู้อื่นจองก่อน ระบบจะแจ้งให้เลือกที่นั่งใหม่');
+        card.appendChild(holdNote);
+
+        var goBtn = E('a', 'btn btn-primary btn-block', 'ดำเนินการต่อ');
+        goBtn.id = 'continue-btn';
+        goBtn.setAttribute('aria-disabled', 'true');
+        goBtn.style.pointerEvents = 'none';
+        goBtn.style.opacity = '0.55';
+        card.appendChild(goBtn);
+        var backBtn = E('a', 'btn btn-ghost btn-block gap-t', 'เลือกที่นั่งใหม่ทั้งหมด');
+        backBtn.href = 'seats.html?st=' + encodeURIComponent(stId);
+        card.appendChild(backBtn);
+        panel.appendChild(card);
+
+        page.appendChild(left);
+        page.appendChild(panel);
+        main.appendChild(page);
+
+        /* สถานะที่นั่งที่เลือกไว้ */
+        var picked = [];
+
+        function refresh() {
+          pickedBox.innerHTML = '';
+          picked.forEach(function (s) {
+            pickedBox.appendChild(E('span', 'badge badge-gold', s.label));
+          });
+          if (!picked.length) { pickedBox.appendChild(E('span', 'small muted', 'ยังไม่ได้เลือก')); }
+          totalAmt.textContent = MAISON.baht((movie.price + fee) * picked.length);
+          if (picked.length) {
+            goBtn.style.pointerEvents = '';
+            goBtn.style.opacity = '';
+            goBtn.setAttribute('aria-disabled', 'false');
+            goBtn.href = 'checkout.html?st=' + encodeURIComponent(stId) + '&seats=' +
+              picked.map(function (s) { return s.id; }).join(',');
+          } else {
+            goBtn.style.pointerEvents = 'none';
+            goBtn.style.opacity = '0.55';
+            goBtn.setAttribute('aria-disabled', 'true');
+            goBtn.removeAttribute('href');
+          }
+        }
+
+        /* แผนผังที่นั่ง: แถว A–H × 12 ที่นั่ง */
+        var rows = {};
+        res.seats.forEach(function (s) {
+          (rows[s.row] = rows[s.row] || []).push(s);
+        });
+        Object.keys(rows).forEach(function (rowKey) {
+          var rowEl = E('div', 'seat-row');
+          rowEl.appendChild(E('span', 'row-label', rowKey));
+          rows[rowKey].forEach(function (s) {
+            var btn = E('button', 'seat', s.label);
+            btn.type = 'button';
+            btn.title = 'ที่นั่ง ' + s.label;
+            btn.setAttribute('aria-label', 'ที่นั่ง ' + s.label +
+              (s.status === 'booked' ? ' (จองแล้ว)' : ''));
+            if (s.status === 'booked') {
+              btn.classList.add('booked');
+              btn.disabled = true;
+            } else {
+              btn.addEventListener('click', function () {
+                var idx = picked.indexOf(s);
+                if (idx !== -1) {
+                  picked.splice(idx, 1);
+                  btn.classList.remove('selected');
+                } else {
+                  picked.push(s);
+                  btn.classList.add('selected');
+                }
+                refresh();
+              });
+            }
+            rowEl.appendChild(btn);
+          });
+          map.appendChild(rowEl);
+        });
+
+        refresh();
+      }).catch(function (err) {
+        main.innerHTML = '';
+        var empty = E('div', 'empty-state card');
+        empty.appendChild(E('div', 'glyph', '!'));
+        empty.appendChild(E('h2', null, 'ไม่พบรอบฉายนี้'));
+        empty.appendChild(E('p', 'small', err.message));
+        var back = E('a', 'btn btn-secondary', 'กลับไปหน้าภาพยนตร์');
+        back.href = 'movies.html';
+        empty.appendChild(back);
+        main.appendChild(empty);
+      });
+    });
+  </script>
+</body>
+</html>

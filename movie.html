@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายละเอียดภาพยนตร์ — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-dark">
+  <main class="container" id="main">
+    <div class="page-head">
+      <p><a class="section-link" href="movies.html">&larr; ภาพยนตร์ทั้งหมด</a></p>
+      <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'movies' }).then(function () {
+      var E = MAISON.el;
+      var main = document.getElementById('main');
+      var movieId = MAISON.qs('id');
+      var dates = MAISON_API.showDates();
+
+      if (!movieId) { MAISON.go('movies.html'); return; }
+
+      var stateDate = (function (d) { return dates.indexOf(d) !== -1 ? d : dates[0]; })(MAISON.qs('date'));
+
+      MAISON_API.movie(movieId).then(function (m) {
+        main.innerHTML = '';
+
+        if (!m.nowShowing) {
+          /* หนังที่ยังไม่ฉาย — แสดงข้อมูลและประมาณการ */
+          var wrap = E('div', 'detail-grid');
+          var left = E('div', 'detail-poster');
+          if (m.poster) { var img = E('img'); img.src = m.poster; img.alt = 'โปสเตอร์ ' + m.title; left.appendChild(img); }
+          var right = E('div');
+          right.appendChild(E('p', 'eyebrow', 'COMING SOON'));
+          right.appendChild(E('h1', 'page-title', m.title));
+          var dl = E('dl', 'meta-list');
+          [['แนวภาพยนตร์', MAISON.genresLabel(m.genres)], ['ผู้กำกับ', m.director || '—'], ['เรตติ้ง', m.ageRating]]
+            .forEach(function (pair) {
+              var div = E('div');
+              div.appendChild(E('dt', null, pair[0]));
+              div.appendChild(E('dd', null, pair[1]));
+              dl.appendChild(div);
+            });
+          right.appendChild(dl);
+          right.appendChild(E('p', 'muted', m.synopsis));
+          var note = E('div', 'info-box');
+          note.textContent = 'เรื่องนี้ยังไม่เปิดขายตั๋ว — รอบฉายจะเปิดให้จองเมื่อใกล้วันเข้าฉาย';
+          right.appendChild(note);
+          wrap.appendChild(left); wrap.appendChild(right);
+          main.appendChild(wrap);
+          return;
+        }
+
+        var wrap = E('div', 'detail-grid');
+        var left = E('div', 'detail-poster');
+        if (m.poster) {
+          var img = E('img');
+          img.src = m.poster; img.alt = 'โปสเตอร์ ' + m.title;
+          left.appendChild(img);
+        }
+        var right = E('div');
+        right.appendChild(E('p', 'eyebrow', 'NOW SHOWING'));
+        right.appendChild(E('h1', 'page-title', m.title));
+
+        var dl = E('dl', 'meta-list');
+        [
+          ['แนวภาพยนตร์', MAISON.genresLabel(m.genres)],
+          ['ผู้กำกับ', m.director || '—'],
+          ['ระยะเวลา', m.durationMin + ' นาที'],
+          ['เรตติ้ง', m.ageRating],
+          ['วันเข้าฉาย', m.releaseDate ? MAISON.thDate(m.releaseDate) : '—'],
+          ['ราคาต่อที่นั่ง', MAISON.baht(m.price)],
+          ['โรงฉาย', m.hall || '—'],
+          ['ช่วงเวลาฉาย', m.periodLabels.length ? m.periodLabels.map(function (p) { return 'รอบ' + p; }).join(', ') : '—'],
+          ['ช่วงวันฉาย', m.dateStart ? MAISON.thDate(m.dateStart) + ' – ' + MAISON.thDate(m.dateEnd) : '—']
+        ].forEach(function (pair) {
+          var div = E('div');
+          div.appendChild(E('dt', null, pair[0]));
+          div.appendChild(E('dd', null, pair[1]));
+          dl.appendChild(div);
+        });
+        right.appendChild(dl);
+        right.appendChild(E('p', 'muted', m.synopsis));
+
+        right.appendChild(E('h3', 'gap-t', 'เลือกวันฉาย'));
+        var strip = E('div', 'date-strip');
+        strip.id = 'date-strip';
+        strip.setAttribute('aria-label', 'เลือกวันฉาย (วันที่อยู่นอกช่วงฉายจะกดไม่ได้)');
+        right.appendChild(strip);
+
+        right.appendChild(E('h3', 'gap-t', 'รอบฉาย'));
+        var list = E('div', 'showtime-list');
+        list.id = 'showtime-list';
+        right.appendChild(list);
+
+        wrap.appendChild(left); wrap.appendChild(right);
+        main.appendChild(wrap);
+
+        /* วันที่อยู่นอกช่วงฉายของเรื่องนี้ → ปุ่มหม่น กดไม่ได้
+           ถ้าวันที่เลือกไว้ตกอยู่นอกช่วง ให้เลื่อนไปวันแรกที่ฉายแทน */
+        function outOfRange(iso) { return iso < m.dateStart || iso > m.dateEnd; }
+        if (outOfRange(stateDate)) {
+          var firstOk = dates.filter(function (iso) { return !outOfRange(iso); })[0];
+          if (firstOk) { stateDate = firstOk; }
+        }
+
+        function renderDates() {
+          MAISON.dateStrip(strip, dates, stateDate, {
+            isOut: outOfRange,
+            onPick: function (iso) {
+              stateDate = iso;
+              history.replaceState(null, '', 'movie.html?id=' + encodeURIComponent(movieId) + '&date=' + iso);
+              renderDates(); renderShowtimes();
+            }
+          });
+        }
+
+        function renderShowtimes() {
+          list.innerHTML = '';
+          list.appendChild(E('div', 'spinner')).setAttribute('role', 'status');
+          MAISON_API.showtimes(movieId, stateDate).then(function (res) {
+            list.innerHTML = '';
+            if (!res.items.length) {
+              var msg = outOfRange(stateDate)
+                ? 'วันที่เลือกอยู่นอกช่วงฉายของเรื่องนี้ (' + MAISON.thDate(m.dateStart) + ' – ' + MAISON.thDate(m.dateEnd) + ')'
+                : 'ไม่มีรอบฉายในวันที่เลือก';
+              list.appendChild(E('p', 'muted small', msg));
+              return;
+            }
+            res.items.forEach(function (st) {
+              var a = E('a', 'showtime-btn');
+              a.href = 'seats.html?st=' + encodeURIComponent(st.id);
+              var strong = E('strong', null, st.time);
+              a.appendChild(E('span', 'st-hall', 'รอบ' + st.periodLabel + ' · ' + st.hall));
+              a.appendChild(strong);
+              if (st.status === 'full') {
+                a.classList.add('disabled-look');
+                a.removeAttribute('href');
+                a.setAttribute('aria-disabled', 'true');
+                a.appendChild(E('span', 'st-left', 'รอบเต็ม'));
+              } else {
+                a.appendChild(E('span', 'st-left', 'เหลือ ' + st.availableCount + ' ที่นั่ง'));
+              }
+              list.appendChild(a);
+            });
+          }).catch(MAISON.handleApiError);
+        }
+
+        renderDates();
+        renderShowtimes();
+      }).catch(function (err) {
+        main.innerHTML = '';
+        var empty = E('div', 'empty-state card');
+        empty.appendChild(E('div', 'glyph', '404'));
+        empty.appendChild(E('h2', null, 'ไม่พบภาพยนตร์เรื่องนี้'));
+        empty.appendChild(E('p', 'small', err.message));
+        var back = E('a', 'btn btn-secondary', 'กลับไปหน้าภาพยนตร์');
+        back.href = 'movies.html';
+        empty.appendChild(back);
+        main.appendChild(empty);
+      });
+    });
+  </script>
+</body>
+</html>

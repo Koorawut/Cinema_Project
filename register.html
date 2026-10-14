@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>สมัครสมาชิก — MAISON Cinema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="theme-light">
+  <main class="auth-wrap">
+    <div class="card auth-card" data-od-id="register-card">
+      <h1 class="auth-title">สมัครสมาชิก</h1>
+      <p class="auth-sub">สร้างบัญชี MAISON เพื่อจองตั๋วและรับสิทธิ์สมาชิก</p>
+      <div class="form-error-banner" id="form-error" hidden></div>
+      <form id="register-form">
+        <div class="field">
+          <label for="username">ชื่อผู้ใช้</label>
+          <input class="input" type="text" id="username" name="username" autocomplete="username" placeholder="ภาษาอังกฤษ ตัวเลข หรือ _ (3–20 ตัวอักษร)" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" title="ใช้ตัวอักษรภาษาอังกฤษ ตัวเลข หรือ _ ความยาว 3–20 ตัวอักษร">
+        </div>
+        <div class="field">
+          <label for="email">อีเมล</label>
+          <input class="input" type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="password">รหัสผ่าน</label>
+          <input class="input" type="password" id="password" name="password" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร มีตัวอักษรและตัวเลข" required minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข">
+          <p class="field-hint">ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข</p>
+        </div>
+        <div class="field">
+          <label for="confirmPassword">ยืนยันรหัสผ่าน</label>
+          <input class="input" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านซ้ำอีกครั้ง" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">สมัครสมาชิก</button>
+      </form>
+      <p class="auth-alt">มีบัญชีอยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a></p>
+    </div>
+  </main>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    MAISON.init({ nav: 'home', redirectIfAuth: true }).then(function () {
+      var form = document.getElementById('register-form');
+      var errBox = document.getElementById('form-error');
+      var btn = document.getElementById('submit-btn');
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        errBox.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'กำลังสร้างบัญชี...';
+        MAISON_API.register({
+          username: document.getElementById('username').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+          confirmPassword: document.getElementById('confirmPassword').value
+        }).then(function () {
+          MAISON.toast('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ', 'success');
+          setTimeout(function () { MAISON.go('login.html'); }, 500);
+        }).catch(function (err) {
+          errBox.textContent = err.message;
+          errBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'สมัครสมาชิก';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
