@@ -2,6 +2,52 @@
 
 รูปแบบอ้างอิง [Keep a Changelog](https://keepachangelog.com/th-TH/1.1.0/) เวอร์ชันตาม [Semantic Versioning](https://semver.org/lang/th/)
 
+## [2.1.0] — 15 ตุลาคม 2026
+
+ปิด P-08: หน้า checkout ใส่โค้ดส่วนลดแล้วเห็นราคาจริง — สรุปผล: T1 47/47, unit 19/19, T5 HTTP 24/24, client parity 3/3, smoke เบราว์เซอร์ 21/21 (ดู `tests/test-log.md` รอบที่ 5)
+
+### เพิ่ม (Added)
+- ช่องกรอกโค้ด + ปุ่ม "ใช้โค้ด" + ปุ่มลบโค้ดใน `checkout.html`; แสดงบรรทัด "ส่วนลด (CODE)" และยอดรวมใหม่ก่อนกดยืนยัน; ตั๋ว (`ticket.html`) และประวัติ (`bookings.html`) แสดงส่วนลดที่ใช้
+- `server/pricing.js` — ฟังก์ชัน `quote()` คำนวณราคาตามกติกา (วันในสัปดาห์ของรอบ, เวลารอบ, จำนวนที่นั่ง); ผิดเงื่อนไข/ไม่ทำให้ราคาถูกลง/โค้ดไม่มีกติกา ตอบ 422 พร้อมเหตุผลภาษาไทย
+- กติกาโค้ดทั้งสาม: `MAISON20` เฉพาะรอบวันพุธ ลด 20% ของค่าตั๋ว · `EVENINGPAIR` พอดี 2 ที่นั่ง รอบ 18:00 ขึ้นไป ตั๋วรวม 480 · `FRIDAY180` รอบวันศุกร์ก่อน 15:00 ตั๋วที่นั่งละ 180 — ใช้ได้ 1 โค้ดต่อ 1 การจอง และไม่ลดค่าบริการ ฿30/ตั๋ว
+- DB: `promotions` เพิ่ม `rule_type, rule_value, weekday, time_from, time_to, seat_count`; `bookings` เพิ่ม `promo_code, discount`
+- `tests/pricing.test.js` และเคสโค้ดส่วนลดใน T1 / T5 HTTP / smoke เบราว์เซอร์
+
+### เปลี่ยนแปลง (Changed)
+- `POST /api/promotions/redeem` รับ `showtimeId` + `seatIds` เพิ่มและคืน `quote` (ส่งแค่โค้ดยังทำงานเหมือนเดิมสำหรับ `offers.html`); `POST /api/bookings` รับ `promoCode` และคืน `discount`, `promoCode`
+- `api-mock.js` ทำกติกาเดียวกับ server (`SEED_VERSION` 5); `seed.json` ใส่ `rule` และปรับข้อความเงื่อนไขของโปรทั้งสาม
+- เลขเวอร์ชันเป็น "เวอร์ชัน 2.1 (v2.1)" (`VERSION` 2.1.0)
+
+### หมายเหตุการ deploy
+- รัน `npm run db:migrate` กับ Neon ก่อน deploy และ `npm run db:seed -- --refresh-schedule` เพื่อใส่กติกาให้โปรเดิม
+- โค้ดที่ admin สร้างใหม่ยังไม่มีกติกา — ใช้คำนวณส่วนลดไม่ได้ (422 "โค้ดนี้ยังไม่เปิดให้คำนวณส่วนลด")
+
+## [2.0.0] — 15 ตุลาคม 2026
+
+รอบ backend จริง: deploy เป็นโปรเจกต์ Vercel เดียว (static HTML + Vercel Function `/api` + Neon Postgres + Vercel Blob) — หน้า HTML ใช้ `MAISON_API.*` เหมือนเดิม สลับที่ชั้น API จุดเดียว — สรุปผล: T1 44/44, unit 6/6, T5 HTTP 20/20, client parity 3/3, smoke เบราว์เซอร์ 20/20 (ดู `tests/test-log.md` รอบที่ 4)
+
+### เพิ่ม (Added)
+- Backend ใน `api/index.js` (function เดียว + rewrite `/api/:path*` ใน `vercel.json`) และ `server/` — routes `auth`, `catalog`, `bookings`, `promotions`, `admin` คืน shape เดิมของ mock ทุก endpoint และข้อความ error ภาษาไทยเดิม
+- ฐานข้อมูล Neon Postgres (`db/schema.sql`): `users`, `sessions`, `login_attempts`, `movies`, `bookings`, `booking_seats` (`UNIQUE(showtime_id, seat_id)` กันจองซ้อน), `promotions` — ทุก query ใช้ parameter `$1…` ไม่ต่อสตริง SQL
+- Session จริง: cookie `maison_sid` แบบ `HttpOnly; Secure; SameSite=Lax; Path=/` — เก็บเฉพาะ sha256 ของ token ใน DB, remember me = 30 วัน (`Max-Age`), ไม่ remember = 12 ชม. (session cookie), logout ลบแถว session, เปลี่ยนรหัสผ่านแล้วตัด session อื่นของผู้ใช้; รหัสผ่าน bcrypt; จำกัด login ผิด 10 ครั้ง/15 นาทีต่อชื่อบัญชี (429)
+- `GET /api/config` — วันที่วันนี้ตามเขตเวลาไทย (คำนวณที่ server ด้วย `Asia/Bangkok`) + ผู้ใช้ปัจจุบัน + ค่าคงที่โรง/ช่วงเวลา; `api.js` โหลดด้วย `XMLHttpRequest` + `JSON.parse(responseText)`
+- ภาพโปสเตอร์/คูปองที่แนบในหน้า admin ตรวจชนิดจาก magic bytes + ขนาด ≤180 KB ที่ server แล้วอัปโหลดขึ้น Vercel Blob เก็บเฉพาะ URL; ลบภาพเก่าเมื่อแทนที่/ลบ; ปฏิเสธ URL ภายนอก
+- `scripts/migrate.js`, `scripts/seed.js` (`--reset`, `--refresh-schedule`) — seed หนัง 11 เรื่อง, คูปอง 3 ใบ, บัญชี admin/demo + ลูกค้าตัวอย่าง 48 บัญชี (`guest01`…`guest48`), ที่นั่งถูกจองจริง 28–70% ทุกรอบในช่วง 6 วัน (รอบเย็น The Hollow Choir วันนี้เต็ม) และประวัติการจอง 30 วันย้อนหลัง
+- `scripts/dev-server.js` (`npm run dev`) เซิร์ฟ static + `/api` ด้วย handler ตัวเดียวกับ Vercel; รองรับ PGlite (`DATABASE_URL=pglite:./.pglite`) สำหรับเครื่องที่ไม่มี Neon
+- `scripts/build.js` (`npm run build`) คัดลอกหน้า HTML + `assets/` ไป `public/` (ไม่รวม `api-mock.js`) — โค้ด server/สคริปต์/schema ไม่ถูกเสิร์ฟเป็นไฟล์ static
+- ชุดทดสอบใหม่: `tests/time.test.js` (เขตเวลา), `tests/api-http.test.js` (T5 ยิง HTTP จริง), `tests/api-client.test.js` (เทียบ interface `api.js` กับ mock), `tests/smoke-browser.js` (Edge/Chrome headless ผ่าน CDP)
+
+### เปลี่ยนแปลง (Changed)
+- `assets/js/api.js` เดิม (mock + localStorage) ย้ายเป็น `assets/js/api-mock.js` ไม่แก้เนื้อหา — `tests/run-tests.js` / `tests/run-tests.html` ชี้ไฟล์ใหม่
+- `assets/js/api.js` ใหม่เป็น HTTP client interface เดิมทุกเมธอด (`mode: 'http'`) ใช้ `fetch(..., { credentials: 'same-origin' })`, คำขอที่แก้ข้อมูลส่ง `Content-Type: application/json` (server ตอบ 415 ถ้าไม่ใช่ — กัน CSRF ร่วมกับ SameSite=Lax), ไม่เขียน localStorage/sessionStorage
+- `createBooking` คำนวณราคาที่ server และ insert การจอง+ที่นั่งในคำสั่ง SQL เดียว; ที่นั่งชนตอบ `409` พร้อม `conflicts`
+- หน้า admin: สถิติทุกตัวนับจาก DB (เลิกบวก `demoBaselineUsers`), ข้อความกำกับเป็น "ข้อมูลจากฐานข้อมูล (ชุดตัวอย่างจาก seed)"
+- เลขเวอร์ชันเป็น "เวอร์ชัน 2.0 (v2.0)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า (`VERSION` 2.0.0 ใน app.js); footer ระบุว่าข้อมูลเป็นชุดตัวอย่างในฐานข้อมูล
+
+### ความปลอดภัย (Security)
+- สิทธิ์ user/admin ตรวจที่ server ทุก endpoint (401/403) — การซ่อนเมนูฝั่ง client ไม่ใช่ตัวป้องกันอีกต่อไป; ห้ามลดสิทธิ์/ลบตัวเองและห้ามลบ admin คนสุดท้าย
+- ค้นหาบัญชี escape `%` `_` ใน `LIKE`; body JSON จำกัด 1 MB; header `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`; `/api/*` เป็น `Cache-Control: no-store`
+
 ## [1.4.0] — 14 ตุลาคม 2026
 
 ### เพิ่ม (Added)

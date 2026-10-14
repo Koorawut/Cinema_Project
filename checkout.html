@@ -82,8 +82,25 @@
         lines.appendChild(line('ค่าบริการ ' + MAISON.baht(fee) + ' × ' + seatObjs.length, MAISON.baht(fee * seatObjs.length)));
         body.appendChild(lines);
 
+        var promoBox = E('div', 'gap-t');
+        promoBox.appendChild(E('label', 'lab small', 'โค้ดส่วนลด (ถ้ามี)'));
+        var promoRow = E('div', 'redeem-row');
+        var promoInput = E('input', 'input');
+        promoInput.type = 'text'; promoInput.id = 'promo-code'; promoInput.maxLength = 40;
+        promoInput.placeholder = 'เช่น MAISON20'; promoInput.autocomplete = 'off';
+        promoInput.setAttribute('aria-label', 'โค้ดส่วนลด');
+        var promoBtn = E('button', 'btn btn-secondary', 'ใช้โค้ด');
+        promoBtn.type = 'button'; promoBtn.id = 'promo-apply';
+        promoRow.appendChild(promoInput); promoRow.appendChild(promoBtn);
+        promoBox.appendChild(promoRow);
+        var promoMsg = E('p', 'small muted gap-t', 'ส่วนลดคิดจากค่าตั๋วเท่านั้น ไม่รวมค่าบริการ ใช้ได้ 1 โค้ดต่อการจอง');
+        promoMsg.id = 'promo-msg';
+        promoMsg.setAttribute('role', 'status');
+        promoBox.appendChild(promoMsg);
+        body.appendChild(promoBox);
+
         var note = E('p', 'illustrative-note',
-          'หน้านี้เป็นตัวอย่างขั้นตอนชำระเงินเพื่อการสาธิต (v1) — ระบบยังไม่มีการตัดเงินจริง และไม่ขอข้อมูลบัตรสินเชื่อใด ๆ');
+          'หน้านี้เป็นตัวอย่างขั้นตอนชำระเงินเพื่อการสาธิต — ระบบยังไม่มีการตัดเงินจริง และไม่ขอข้อมูลบัตรสินเชื่อใด ๆ ราคาและส่วนลดคำนวณโดยเซิร์ฟเวอร์');
         body.appendChild(note);
 
         var confirmBtn = E('button', 'btn btn-primary btn-block gap-t', 'ยืนยันการจอง');
@@ -99,12 +116,60 @@
         subtotal.innerHTML = '<span class="lab">ค่าตั๋ว</span><span>' + MAISON.baht(movie.price * seatObjs.length) + '</span>';
         var feeLine = E('div', 'summary-line');
         feeLine.innerHTML = '<span class="lab">ค่าบริการ</span><span>' + MAISON.baht(fee * seatObjs.length) + '</span>';
+        var discountLine = E('div', 'summary-line');
+        discountLine.hidden = true;
+        discountLine.id = 'discount-line';
+        var discountLab = E('span', 'lab', '');
+        var discountAmt = E('span', null, '');
+        discountLine.appendChild(discountLab); discountLine.appendChild(discountAmt);
         var total = E('div', 'summary-total');
         total.innerHTML = '<span>รวมทั้งสิ้น</span><span class="amt"></span>';
-        total.querySelector('.amt').textContent = MAISON.baht((movie.price + fee) * seatObjs.length);
+        var totalAmt = total.querySelector('.amt');
+        var baseTotal = (movie.price + fee) * seatObjs.length;
+        totalAmt.textContent = MAISON.baht(baseTotal);
         rcard.appendChild(subtotal);
+        rcard.appendChild(discountLine);
         rcard.appendChild(feeLine);
         rcard.appendChild(total);
+
+        /* โค้ดที่ server ตรวจแล้ว — null = ไม่ใช้โค้ด; ยอดที่แสดงเป็นแค่ตัวอย่าง ยอดจริงคำนวณที่ server ตอนยืนยัน */
+        var appliedCode = null;
+        function clearPromo(msg) {
+          appliedCode = null;
+          discountLine.hidden = true;
+          totalAmt.textContent = MAISON.baht(baseTotal);
+          promoBtn.textContent = 'ใช้โค้ด';
+          promoInput.disabled = false;
+          promoMsg.textContent = msg || 'ส่วนลดคิดจากค่าตั๋วเท่านั้น ไม่รวมค่าบริการ ใช้ได้ 1 โค้ดต่อการจอง';
+        }
+        promoBtn.addEventListener('click', function () {
+          if (appliedCode) { promoInput.value = ''; clearPromo(); return; }
+          var code = promoInput.value.trim();
+          if (!code) { MAISON.toast('กรุณากรอกโค้ดส่วนลดก่อน', 'info'); return; }
+          promoBtn.disabled = true;
+          promoBtn.textContent = 'กำลังตรวจสอบ...';
+          MAISON_API.redeem(code, stId, seatParam).then(function (res) {
+            var q = res.quote;
+            appliedCode = q.promoCode;
+            discountLab.textContent = 'ส่วนลด (' + q.promoCode + ')';
+            discountAmt.textContent = '−' + MAISON.baht(q.discount);
+            discountLine.hidden = false;
+            totalAmt.textContent = MAISON.baht(q.total);
+            promoInput.value = q.promoCode;
+            promoInput.disabled = true;
+            promoMsg.textContent = 'ใช้โค้ด ' + q.promoCode + ' แล้ว — ' + res.promotion.title;
+            MAISON.toast('ใช้โค้ดสำเร็จ ลด ' + MAISON.baht(q.discount), 'success');
+            promoBtn.textContent = 'ลบโค้ด';
+          }).catch(function (err) {
+            if (err.status === 401) { MAISON.handleApiError(err); return; }
+            promoMsg.textContent = err.message;
+            MAISON.toast(err.message, 'error');
+            promoBtn.textContent = 'ใช้โค้ด';
+          }).then(function () { promoBtn.disabled = false; });
+        });
+        promoInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); promoBtn.click(); }
+        });
         var statusLine = E('p', 'small muted', 'สถานะ: รอการยืนยัน');
         statusLine.id = 'status-line';
         rcard.appendChild(statusLine);
@@ -118,7 +183,7 @@
           confirmBtn.disabled = true;
           confirmBtn.textContent = 'กำลังยืนยันการจอง...';
           statusLine.textContent = 'สถานะ: กำลังดำเนินการ...';
-          MAISON_API.createBooking({ showtimeId: stId, seatIds: seatParam }).then(function (out) {
+          MAISON_API.createBooking({ showtimeId: stId, seatIds: seatParam, promoCode: appliedCode }).then(function (out) {
             MAISON.toast('ยืนยันการจองสำเร็จ รหัสการจอง ' + out.booking.code, 'success');
             setTimeout(function () { MAISON.go('ticket.html?id=' + encodeURIComponent(out.booking.id)); }, 450);
           }).catch(function (err) {
@@ -128,6 +193,9 @@
             if (err.status === 409) {
               MAISON.toast(err.message, 'error');
               setTimeout(function () { MAISON.go('seats.html?st=' + encodeURIComponent(stId)); }, 900);
+            } else if (err.status === 422 && appliedCode) {
+              clearPromo(err.message);
+              MAISON.toast(err.message, 'error');
             } else {
               MAISON.handleApiError(err);
             }

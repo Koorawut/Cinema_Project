@@ -458,6 +458,7 @@ table.data tr.clickable:hover td { background: rgba(201, 180, 133, 0.07); }
 .summary-panel .card { padding: 24px 26px; }
 .summary-line { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; padding: 7px 0; }
 .summary-line .lab { color: var(--text-muted-on-dark); }
+.summary-line[hidden] { display: none; }
 .theme-light .summary-panel .summary-line .lab { color: var(--text-muted-on-light); }
 .summary-total {
   display: flex; justify-content: space-between; align-items: baseline;

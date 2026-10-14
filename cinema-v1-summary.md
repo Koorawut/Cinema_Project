@@ -1,58 +1,117 @@
-# สรุป v1 — เว็บจองตั๋วหนัง MAISON (ส่งต่อ backend)
+# สรุปโครงการ — เว็บจองตั๋วหนัง MAISON (frontend v1 + backend v2)
 
-อัปเดต: 14 ตุลาคม 2026 (รอบปรับปรุง v1.4) · เวอร์ชัน 1.4 (v1.4) · แสดงเลขเวอร์ชันที่ eyebrow หน้าแรกและ footer ทุกหน้า
-เอกสารหลัก: `cinema-frontend-plan.md` (สัญญา API หัวข้อ 5) · `CHANGELOG.md` · `cinema-issues.md`
+อัปเดต: 15 ตุลาคม 2026 (v2.0 — backend จริงบน Vercel + Neon Postgres + Vercel Blob) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.0 (v2.0)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
+เอกสารหลัก: `cinema-frontend-plan.md` (สัญญา API หัวข้อ 5, Rubrics หัวข้อ 3.1) · `CHANGELOG.md` · `cinema-issues.md` · `tests/test-log.md`
 
 ## 1. สิ่งที่ส่งมอบ
 
-- หน้า HTML 15 หน้า (vanilla JS ไม่ใช้ framework/build tool): index, login, register, account, movies, movie, seats, checkout, ticket, bookings, offers, admin, admin-accounts, admin-movies, admin-promotions
-- `assets/js/api.js` — mock API ครบทุก endpoint ตามสัญญาในแผน; ทุก call ผ่าน `MAISON_API.*` เท่านั้น การสลับเป็น backend จริงทำที่ไฟล์นี้จุดเดียว
-- `assets/js/app.js` — utilities/UI shell (toast, dialog, confirm, จัดรูปแบบวันที่-เงินภาษาไทย)
-- `assets/css/styles.css`, `assets/data/seed.json`, `assets/img/*.svg` (12 ไฟล์ สร้างเอง)
+- หน้า HTML 15 หน้า (vanilla JS ไม่ใช้ framework): index, login, register, account, movies, movie, seats, checkout, ticket, bookings, offers, admin, admin-accounts, admin-movies, admin-promotions
+- `assets/js/api.js` — HTTP client (`MAISON_API`, `mode: 'http'`) interface เดียวกับ mock เดิมทุกเมธอด; ทุกหน้าเรียกข้อมูลผ่านชั้นนี้เท่านั้น
+- `assets/js/api-mock.js` — mock เดิม (localStorage) เก็บไว้ให้ชุดทดสอบ T1 (`tests/run-tests.*`) — **ไม่ถูก deploy**
+- `assets/js/app.js` — utilities/UI shell (toast, dialog, confirm, จัดรูปแบบวันที่-เงินภาษาไทย) · `assets/css/styles.css` · `assets/data/seed.json` · `assets/img/*.svg`
+- Backend:
 
-## 2. การสลับเป็น backend จริง
+| ไฟล์ | หน้าที่ |
+| --- | --- |
+| `api/index.js` | Vercel Function เดียว — router ของ `/api/*` ทั้งหมด (rewrite ใน `vercel.json`) |
+| `server/http.js` | `ApiError`, ตอบ JSON, อ่าน body (≤1 MB), cookie, บังคับ `Content-Type: application/json` สำหรับคำขอที่แก้ข้อมูล (415) |
+| `server/auth.js` | bcrypt, session (token สุ่ม 32 ไบต์ เก็บ sha256 ใน DB), `requireUser` / `requireAdmin`, จำกัด login ผิด |
+| `server/db.js` | Neon (`@neondatabase/serverless`) หรือ PGlite เมื่อ `DATABASE_URL=pglite:…` |
+| `server/time.js` · `server/schedule.js` | วันที่เขตเวลาไทย · โรง/ช่วงเวลา/ค่าบริการ/id รอบฉาย และตรวจตารางฉายชนกัน |
+| `server/validate.js` · `server/images.js` · `server/movies.js` | ตรวจฟอร์ม (ข้อความ error เดิม) · ภาพขึ้น Vercel Blob · สถานะรอบ/ที่นั่งจาก DB |
+| `server/routes/*.js` | `auth`, `catalog`, `bookings`, `promotions`, `admin` |
+| `db/schema.sql` | DDL (idempotent) |
+| `scripts/` | `migrate.js`, `seed.js`, `dev-server.js`, `build.js`, `env.js` (โหลด `.env.local`) |
 
-1. เก็บ endpoint ทั้งหมดที่หน้าเพจเรียก (ผ่าน `MAISON_API`) แล้วเขียน implement ใหม่เรียก HTTP แทน localStorage
-2. โครงสร้าง request/response อ้างอิงหัวข้อ 5 ของแผน; seed.json ใช้เป็นข้อมูลตั้งต้น DB ได้
-3. จุดที่ต้องระวังเมื่อมี backend:
-   - `createBooking` ต้องยืนยันราคา+จองที่นั่งแบบ atomic และตอบ `409` เมื่อที่นั่งถูกจองไปก่อน (P-03)
-   - รอบฉายอย่า hardcode วันที่สัมพัทธ์ฝั่ง client — เก็บ "ตารางฉายต่อเรื่อง" (โรง, ช่วงเวลา, ช่วงวันที่) ตาม `SEED_SCHEDULE` ใน api.js แล้ว generate showtimes รายวันที่ server; รูปแบบ id `st-{movieId}-{YYYY-MM-DD}-{morning|afternoon|evening}` และ id ที่นั่ง `{hallId}-{แถว}{เลข}` ใช้ต่อได้; seed.json **ไม่มี**ข้อมูลตารางนี้ (วันที่สัมพัทธ์กับวันปัจจุบันจึง inject ตอน runtime)
-   - session/cookie จริงแทน `maison_v1_session` + `maison_v1_session_fb` (P-06, P-10) — ตั้ง `Secure; SameSite=Lax` ให้ cookie remember (L-1)
-    - `adminCreatePromotion(data)` / `adminUpdatePromotion(id,data)` / `adminDeletePromotion(id)` / `adminPromotions()` ต้องบังคับสิทธิ์ admin ที่ server และตรวจ code ซ้ำ; คูปองใช้ `{code,title,summary,details,terms,image}` ร่วมกับ public `promotions()`/`promotion(id)`/`redeem(code)` (ยังตรวจรหัสเท่านั้น ไม่คำนวณส่วนลด: P-08)
-    - ฟอร์มแนบภาพใช้ PNG/JPEG/WebP สูงสุด 180 KB; mock แปลงเป็น data URL เก็บใน localStorage ภายใต้ `maison_v1_db` (อาจเต็มพื้นที่ แม้ระบบแจ้งข้อผิดพลาดแล้ว) — backend จริงควรอัปโหลดไฟล์แยกไป object storage, ตรวจชนิดจากเนื้อหา/ขนาดฝั่ง server, กำหนดสิทธิ์และคืน URL ที่อนุญาตแทน data URL; ยังต้องตรวจ URL `poster`/`image` ฝั่ง server (L-2)
+## 2. สถาปัตยกรรม
 
-## 3. ข้อมูลสาธิต
+```
+Browser (หน้า HTML) ── MAISON_API (assets/js/api.js)
+        │  XHR: GET /api/config · fetch: ที่เหลือ · cookie maison_sid (HttpOnly)
+        ▼
+Vercel: /api/:path*  → rewrite → api/index.js → server/routes/*.js
+        ├── Neon Postgres (DATABASE_URL)
+        └── Vercel Blob (BLOB_READ_WRITE_TOKEN) — ภาพที่ admin แนบ
+Static: npm run build คัดลอก *.html + assets/ → public/ (outputDirectory)
+```
 
-- บัญชี: `admin/admin123` (role admin), `demo/demo123` (role member) — หน้า login มีปุ่มกรอกบัญชีทั้งสองอัตโนมัติ
-- ราคาบัตรต่อเรื่อง ฿200–฿300 · ค่าบริการ ฿30/ตั๋ว (SERVICE_FEE)
-- โรง 2 โรง: `hall-01` / `hall-02` แถว A–H × 12 ที่นั่งเท่ากัน · 3 ช่วงเวลา/วัน — เช้า 10:30 · กลางวัน 14:20 · เย็น 19:00 · วันฉาย 6 วันนับจากวันนี้ (SHOW_DAYS)
-- การจองสาธิตของบัญชี demo: MAI-7Q3F (Orbit 9, hall-01, E7+E8) และ MAI-2K8D (Bangkok Bank Run, hall-02, C4) — วันที่อดีต เพื่อให้หน้า bookings/ticket/admin มีข้อมูล
-- หนัง now showing 8 เรื่อง + coming soon 3 เรื่อง (m09–m11) · โปร 3 รายการ (MAISON20, EVENINGPAIR, FRIDAY180)
-- ตัวเลขสถิติหน้า admin เป็นตัวอย่าง ติดป้ายกำกับแล้ว (P-04)
+- รอบฉายไม่มีตาราง — คำนวณจาก "ตารางฉายต่อเรื่อง" ในตาราง `movies` (`hall_id`, `date_start`, `date_end`, `periods`) ด้วย id `st-{movieId}-{YYYY-MM-DD}-{morning|afternoon|evening}`; ที่นั่ง `{hallId}-{แถว}{เลข}`; ผังโรงเป็นค่าคงที่ใน `server/schedule.js`
+- กันจองซ้อน: `booking_seats UNIQUE(showtime_id, seat_id)` + insert การจองและที่นั่งในคำสั่ง SQL เดียว (CTE) → ชนแล้วตอบ `409` + `conflicts` (P-03)
+- เวลาทั้งหมดส่งเป็น ISO 8601 `+07:00` (Asia/Bangkok); "วันนี้" คำนวณที่ server ไม่อิงนาฬิกาเครื่องผู้ใช้ (P-11)
+- นโยบายลบ: ลบบัญชี → การจองยังอยู่ (`user_id` เป็น NULL); ลบหนัง → การจองยังอยู่ (`movie_id` เป็น NULL) และแสดงชื่อ/ราคา/รอบจาก snapshot ในตาราง `bookings`
 
-## 4. ที่เก็บข้อมูล (mock)
+## 3. ข้อมูลสาธิต (seed เป็นแถวจริงใน DB)
 
-| คีย์ | ที่เก็บ | เนื้อหา |
-|---|---|---|
-| `maison_v1_db` | localStorage | DB จำลอง (movies, promotions, users, bookings) — SEED_VERSION 4 |
-| `maison_v1_session` | sessionStorage | session ผู้ใช้ปัจจุบัน (ตัวหลัก) |
-| `maison_v1_session_fb` | localStorage | สำเนา session สำรอง (v1.1, P-10) — อ่านคืนเมื่อ sessionStorage ว่าง เพราะ preview แบบ iframe ล้าง sessionStorage ทุกครั้งที่เปลี่ยนหน้า; backend จริงให้แทนด้วย httpOnly cookie session แทนทั้งสองคีย์นี้ |
-| `maison_v1_remember` | localStorage | username จำไว้สำหรับ login |
+- บัญชี: `admin/admin123` (role admin), `demo/demo123` (role user) — หน้า login มีปุ่มกรอกทั้งสองบัญชีอัตโนมัติ; ลูกค้าตัวอย่าง `guest01`…`guest48` (รหัสผ่านสุ่ม ไม่ได้ใช้ login) รวม 50 บัญชี
+- หนัง now showing 8 เรื่อง + coming soon 3 เรื่อง (m09–m11) · คูปอง 3 ใบ (MAISON20, EVENINGPAIR, FRIDAY180)
+- ราคาบัตร ฿200–฿300 · ค่าบริการ ฿30/ตั๋ว · 2 โรง (`hall-01`/`hall-02` แถว A–H × 12) · 3 ช่วงเวลา (10:30 / 14:20 / 19:00) · วันฉาย 6 วันนับจากวันนี้
+- ที่นั่งถูกจองจริงโดยบัญชี guest 28–70% ของทุกรอบ (PRNG deterministic เดิม) · รอบเย็น The Hollow Choir (m02) วันนี้เต็ม · ประวัติการจองย้อนหลัง 30 วัน ให้กราฟ/ตารางหน้า admin มีข้อมูล
+- การจองของ demo: MAI-7Q3F (Orbit 9, hall-01, E7+E8) และ MAI-2K8D (Bangkok Bank Run, hall-02, C4)
+- ตัวเลขหน้า admin ทุกตัวนับจาก DB จริง (ไม่มีตัวเลขบวกเพิ่ม) แต่เป็นชุดตัวอย่างจาก seed — หน้าเว็บติดป้ายกำกับไว้แล้ว
+- **ข้อจำกัด:** วันฉายเก็บเป็นวันที่ตายตัวตอน seed — หลังผ่านไป ~6 วันรอบของหนัง seed จะหมด ให้รัน `npm run db:seed -- --refresh-schedule` (เลื่อนช่วงวันฉายให้เริ่มวันนี้ ไม่ลบการจอง) หรือแก้ช่วงวันในหน้า admin-movies
 
-## 5. ผลตรวจ v1
+## 4. ที่เก็บข้อมูล
 
-- **ฟังก์ชัน/Rubrics (agent):** เดิมไม่ผ่าน 3 จุด — `novalidate` ปิด browser validation (Rubric 3), ไม่มี XHR (Rubric 10), ขาด child combinator (Rubric 2 Bonus) — **แก้ครบแล้ว** รวมถึง `disabled-look` ไม่มีนิยาม CSS, คำเตือนกันที่นั่ง, dead code `draft` — ลบ/เพิ่มแล้ว
-- **ความปลอดภัย (agent):** ไม่พบ HIGH/MEDIUM; LOW 3 รายการ (L-1 cookie, L-2 URL ภาพ, L-3 `st.date` ใน href — เพิ่ม esc แล้ว) ยอมรับได้สำหรับเดโม ระบุไว้ในหัวข้อ 2 สำหรับ backend
-- **สีที่นั่ง:** ว่าง = แดง `#A34A32` (ขอบ `#C77B62`), เลือก = gold `#C9B485`, จองแล้ว = เทา `#3A4038` — ยึดข้อกำหนดผู้ใช้ เป็นการปรับจากแบบ Figma (P-09) บันทึกใน `design-tokens.md`
-- **การทดสอบตามระเบียบ:** v1.2 รอบแรก (T1 39/39, smoke 15 เคส, ปิด P-11) · v1.3 รอบที่ 2 (T1 42/42, smoke 17 เคส, ปิด P-13 ปุ่ม ghost บนพื้นเข้ม) — รายละเอียดใน `tests/test-log.md`
-- **v1.4:** T1 44/44 ใน headless Chrome; งาน admin ภาพยนตร์/คูปองรองรับไฟล์ภาพและฟอร์มเลื่อนได้, หน้า offers และหน้าแรกอ่านรายการคูปองจาก mock DB เดียวกัน (ดู `tests/test-log.md` รอบที่ 3)
+| ที่เก็บ | เนื้อหา |
+| --- | --- |
+| Neon Postgres | `users`, `sessions`, `login_attempts`, `movies`, `bookings`, `booking_seats`, `promotions` (`db/schema.sql`) |
+| Vercel Blob | ภาพโปสเตอร์/คูปองที่ admin แนบ (`posters/`, `promotions/`) — DB เก็บ URL; ภาพ seed อยู่ที่ `assets/img/` |
+| cookie `maison_sid` | session token (HttpOnly; Secure; SameSite=Lax; Path=/) — remember me = `Max-Age` 30 วัน, ไม่ remember = session cookie + หมดอายุใน DB 12 ชม. |
+| localStorage / sessionStorage | **ไม่ใช้แล้ว** — คีย์ `maison_v1_*` เป็นของ `api-mock.js` เท่านั้น |
+
+## 5. ผลตรวจ
+
+- v1 (frontend): ผลตรวจฟังก์ชัน/ความปลอดภัยและการทดสอบรอบที่ 1–3 ดู `tests/test-log.md` · สีที่นั่งยึดข้อกำหนดผู้ใช้ (P-09, `design-tokens.md`)
+- **v2.0 (รอบที่ 4):** T1 mock 44/44 · unit เขตเวลา 6/6 · T5 HTTP 20/20 (401/403/415, cookie flags, logout/replay, จองพร้อมกันได้ 201 หนึ่ง 409 หนึ่ง, CRUD หนัง/คูปอง/บัญชี, ภาพ magic bytes ผิด 422, สถิติตรงผลรวม DB) · client parity 3/3 · smoke เบราว์เซอร์ Edge headless 20/20 ครบ 15 หน้า (login → รอบ → ที่นั่ง → checkout → ตั๋ว → ประวัติ, admin ทั้ง 4 หน้า, cookie HttpOnly, localStorage ว่าง)
+- ยังไม่ได้ทดสอบบน Neon จริงและ Preview deployment — ทดสอบทั้งหมดรันกับ PGlite ในเครื่อง (ดูหัวข้อ 8 ขั้นที่ 6)
 
 ## 6. เงื่อนไขที่ยังค้าง (ส่งต่อรอบถัดไป)
 
-- P-03 การกันที่นั่งระหว่างเลือก (frontend มีคำเตือนแล้ว ไม่มี timer/hold ตามขอบเขต v1)
-- P-04 นิยาม visitor/ค่าบริการ, P-06 หลักฐาน Rubrics ฝั่ง backend/DB/session, P-07 สิทธิ์ข้อมูล+นโยบายลบ, P-08 กติกาโปรโมชันชัดเจน, P-01 การตรวจภาพจริงรายหน้า
-- Rubric 1 (wireframe/architecture) — ยังไม่ชัดว่าต้องส่งไฟล์แยกหรืออ้างแผน/`design-tokens.md` พอ **ต้องถามผู้สอน/ผู้ประเมิน**
+- Pagination (Rubric 8 bonus) — API ยังคืนทั้งหมดเหมือน mock; เพิ่ม `?page=&limit=` ที่ `admin/users`, `admin/movies`, `me/bookings` ได้
+- P-04 นิยามการนับ visitor (ตอนนี้ไม่มีตารางนับผู้เข้าชม) · P-08 ปิดแล้วใน v2.1 (checkout คำนวณส่วนลดที่ server; โค้ดจาก admin ยังไม่มีหน้ากำหนดกติกา) · P-07 ข้อมูล/ภาพจริง · P-12 ข้อความ checkout · P-01 ตรวจภาพจริงรายหน้า
+- Rubric 1 (wireframe/architecture) — ยังต้องถามผู้สอนว่าส่งไฟล์แยกหรืออ้างหัวข้อ 2 ของไฟล์นี้ + แผนได้
+- Rubric 9 — cookie เป็น HttpOnly จึงแสดง session ID ฝั่ง JS ไม่ได้ (ตั้งใจ); หลักฐานวงจร session ใช้ DevTools → Application → Cookies + ตาราง `sessions` แทน — ควรยืนยันกับผู้สอน
 
-## 7. วิธีรัน
+## 7. วิธีรันบนเครื่อง (ไม่ต้องมีบัญชี Vercel)
 
-เสิร์ฟผ่าน HTTP ใดก็ได้ (เช่น VS Code Live Server) — seed.json จะโหลดผ่าน XHR; ถ้าเปิดไฟล์ตรง ๆ ผ่าน `file://` ระบบใช้ embedded seed ใน api.js อัตโนมัติ
+ต้องมี Node.js ≥ 20
+
+```bash
+npm install
+# ฐานข้อมูล PGlite ในโฟลเดอร์ .pglite (ไม่ต้องติดตั้ง Postgres)
+DATABASE_URL=pglite:./.pglite npm run db:seed -- --reset
+DATABASE_URL=pglite:./.pglite COOKIE_INSECURE=1 npm run dev
+# เปิด http://localhost:3000
+```
+
+- PowerShell: `$env:DATABASE_URL='pglite:./.pglite'; $env:COOKIE_INSECURE='1'; npm run dev`
+- `COOKIE_INSECURE=1` ใช้เฉพาะ http://localhost (ตัด `Secure` ออกจาก cookie) — **ห้ามตั้งบน Vercel**
+- ใช้ Neon จริงในเครื่อง: `vercel env pull .env.local` แล้ว `npm run dev` (สคริปต์อ่าน `.env.local` เอง) หรือ `vercel dev`
+- ไม่ตั้ง `BLOB_READ_WRITE_TOKEN` ในเครื่อง → ภาพที่แนบเก็บเป็น data URL ใน DB (บน Vercel จะตอบ 503 แทน)
+
+| npm script | ทำอะไร |
+| --- | --- |
+| `npm run dev` | dev server (static + `/api`) พอร์ต `PORT` หรือ 3000 |
+| `npm run build` | คัดลอกหน้า HTML + `assets/` ไป `public/` (Vercel เรียกเอง) |
+| `npm run db:migrate` | สร้างตาราง (`db/schema.sql`) — รันซ้ำได้ |
+| `npm run db:seed` | seed ลง DB ว่าง · `-- --reset` ล้างแล้ว seed ใหม่ · `-- --refresh-schedule` เลื่อนวันฉาย |
+| `npm test` | T1 mock + unit + T5 HTTP + client parity (สร้าง PGlite ทดสอบเองใน `.pglite-test*`) |
+| `npm run test:mock` / `test:unit` / `test:api` | รันแยกชุด |
+| `npm run test:smoke` | smoke ผ่าน Edge/Chrome headless (ต้องตั้ง `DATABASE_URL` + `COOKIE_INSECURE=1` และ seed ก่อน) |
+
+## 8. Deploy บน Vercel
+
+1. push repo ขึ้น GitHub แล้ว Import เป็นโปรเจกต์ Vercel (Framework Preset: Other — `vercel.json` กำหนด `buildCommand` / `outputDirectory: public` ให้แล้ว)
+2. Vercel → Storage → Create **Neon** (Postgres) → Connect กับโปรเจกต์ (ได้ `DATABASE_URL`) — แนะนำเปิดให้สร้าง database branch สำหรับ Preview
+3. Vercel → Storage → Create **Blob** → Connect (ได้ `BLOB_READ_WRITE_TOKEN`)
+4. ในเครื่อง: `vercel link` → `vercel env pull .env.local` → `npm install`
+5. `npm run db:migrate` → `npm run db:seed -- --reset` (รันกับ Neon ตาม `DATABASE_URL` ใน `.env.local`)
+6. `vercel` (Preview) → ทดสอบ smoke บน URL preview (login, จอง, admin) → `vercel --prod`
+7. ทุก ~6 วัน หรือก่อนสาธิต: `npm run db:seed -- --refresh-schedule`
+
+| Environment variable | ที่มา | หมายเหตุ |
+| --- | --- | --- |
+| `DATABASE_URL` | Neon integration | ใช้ `POSTGRES_URL` แทนได้ถ้าไม่มี; `pglite:<dir>` สำหรับเครื่อง dev |
+| `BLOB_READ_WRITE_TOKEN` | Blob integration | ไม่มีบน Vercel → อัปโหลดภาพตอบ 503 |
+| `COOKIE_INSECURE` | ตั้งเองเฉพาะเครื่อง dev | `1` = cookie ไม่มี `Secure` (http://localhost) |
+| `PORT` | ไม่บังคับ | พอร์ตของ `npm run dev` |

@@ -158,3 +158,115 @@
 
 - T1 ผ่าน 44/44; T2 ตรวจจุดแก้ไม่พบ P0; smoke 3 กรณีผ่าน; ไม่พบปัญหาใหม่ที่ยืนยันได้ระหว่างตรวจ
 - `cinema-issues.md`: ไม่มี ID ใหม่หรือปิดเพิ่มเติม; P-01, P-03, P-04, P-06, P-07, P-08, P-12 ยังตามสถานะเดิม; บันทึกข้อจำกัด quota/localStorage ของภาพแนบสำหรับ backend ใน `cinema-v1-summary.md`
+
+---
+
+## รอบที่ 4 — 15 ตุลาคม 2026 · เวอร์ชันที่ทดสอบ 2.0.0 (backend จริง)
+
+### สภาพแวดล้อม / วิธีรัน
+
+- Windows 11, Node.js v24.12.0, Microsoft Edge 155.0.4283.45 (headless ผ่าน Chrome DevTools Protocol)
+- ฐานข้อมูล: **PGlite** (Postgres แบบ WASM) แทน Neon — ใช้ schema/SQL ชุดเดียวกัน (`server/db.js` สลับ driver ตาม `DATABASE_URL`); แต่ละชุดทดสอบ seed DB ของตัวเองด้วย `--reset` (`.pglite-test`, `.pglite-test-client`) ไม่แตะ `.pglite` ของ dev
+- เซิร์ฟเวอร์: `scripts/dev-server.js` ใช้ handler `api/index.js` ตัวเดียวกับ Vercel; cookie ทดสอบใช้ `COOKIE_INSECURE=1` (http://127.0.0.1)
+- คำสั่ง: `npm test` (T1 + unit + T5 + client parity) · `npm run test:smoke` (หลัง `npm run db:seed -- --reset` ด้วย `DATABASE_URL=pglite:./.pglite`)
+- **ยังไม่ได้รัน**บน Neon จริงและ Vercel Preview — ต้อง smoke ซ้ำหลัง deploy
+
+### T1 — mock เดิม (ยืนยันการย้ายไฟล์)
+
+- `assets/js/api.js` เดิมย้ายเป็น `assets/js/api-mock.js` ไม่แก้เนื้อหา; `tests/run-tests.js` / `run-tests.html` ชี้ไฟล์ใหม่
+- `TZ=Asia/Bangkok node tests/run-tests.js`: **SUMMARY pass=44 fail=0 total=44**
+
+### Unit — เขตเวลา (`tests/time.test.js`) 6/6
+
+- 17:30 UTC = 00:30 วันถัดไปเขตไทย (กรณี P-11 ฝั่ง server ที่ Vercel เป็น UTC), `addDays` ข้ามเดือน/ปี/ปีอธิกสุรทิน, `isISODate`, `toBangkokISO` (`+07:00`), `startsAtISO`, `dateOnly`
+
+### T5 — HTTP API จริง (`tests/api-http.test.js`) 20/20 (~9 วินาที)
+
+| # | เคส | ผล |
+| --- | --- | --- |
+| 1 | `GET /api/config` คืนวันนี้เขตไทย + ค่าคงที่ + `user: null` | ผ่าน |
+| 2 | endpoint ไม่มี 404, เมธอดผิด 405, body ไม่ใช่ JSON 415 (กัน CSRF) | ผ่าน |
+| 3 | ไม่เสิร์ฟ `server/`, `scripts/`, `db/`, `.env*`, `package.json` เป็น static | ผ่าน |
+| 4 | catalog: รายการ, ค้นหา, coming soon, รายละเอียด, 404 | ผ่าน |
+| 5 | รอบเย็น m02 วันนี้เต็ม (fixture จาก seed) จองไม่ได้ | ผ่าน |
+| 6 | ทุก endpoint ที่ต้อง login คืน 401 เมื่อไม่มี session | ผ่าน |
+| 7 | ผู้ใช้ทั่วไปเรียก `/api/admin/*` ได้ 403 | ผ่าน |
+| 8 | register 422 / 201 / 409 (ซ้ำแบบไม่สนตัวพิมพ์) | ผ่าน |
+| 9 | login ด้วย username และ email → cookie `HttpOnly; SameSite=Lax`, remember me มี `Max-Age=2592000`; รหัสผิด 401 | ผ่าน |
+| 10 | logout แล้ว `me` = 401 และ cookie เดิมใช้ซ้ำไม่ได้ (session ถูกลบใน DB) | ผ่าน |
+| 11 | token ปลอม/สุ่มไม่ผ่าน | ผ่าน |
+| 12 | เปลี่ยนรหัสผ่าน: ตรวจรหัสเดิม, session อื่นถูกตัด, รหัสใหม่ใช้ได้ | ผ่าน |
+| 13 | จอง: server คิดราคาเอง (ไม่สนราคาที่ client ส่ง), ประวัติใน `/api/me/bookings`, ที่นั่งเป็น booked | ผ่าน |
+| 14 | จอง: 422 ที่นั่งว่าง/ผิดโรง, 404 รอบไม่มีจริง | ผ่าน |
+| 15 | **จองที่นั่งเดียวกันพร้อมกัน 2 คำขอ → 201 หนึ่ง 409 หนึ่ง** พร้อม `conflicts` (P-03) | ผ่าน |
+| 16 | promotions: รายการ, รายละเอียด, redeem ถูก/ผิด | ผ่าน |
+| 17 | admin คูปอง CRUD + ภาพ magic bytes ไม่ตรงชนิด → 422 "เนื้อหาไฟล์ภาพไม่ตรงกับชนิดภาพ" | ผ่าน |
+| 18 | admin หนัง CRUD + ตรวจรอบชนกันในโรงเดียวกัน + ชื่อซ้ำ | ผ่าน |
+| 19 | admin บัญชี: guest 48 บัญชี, ค้นหา (`%` ถูก escape), เปลี่ยนสิทธิ์, ห้ามลดสิทธิ์/ลบตัวเอง, ลบแล้วประวัติการจองยังอยู่ | ผ่าน |
+| 20 | admin stats: `serviceFeeEstimate = tickets × 30`, ผลรวม byMovie ตรงยอดรวม, daily 14 แถว, `days=7` กรองได้ | ผ่าน |
+
+### Client parity (`tests/api-client.test.js`) 3/3
+
+- โหลด `api.js` (HTTP) และ `api-mock.js` ใน vm แยกกัน: เมธอด/property ครบและชนิดตรงกันทุกตัว
+- เรียกทุกเมธอดคู่กัน (รวม `createBooking`) — ผลจาก server มีทุกฟิลด์ที่ mock คืน (หน้าเว็บใช้ฟิลด์เหล่านี้); `api.js` ไม่เขียน localStorage
+- error จาก server เป็น `ApiError` รูปแบบเดียวกับ mock: 401 (ข้อความ "ยังไม่ได้เข้าสู่ระบบ"), 409 พร้อม `conflicts`, 403; logout ล้างผู้ใช้และ cookie
+
+### Smoke — เบราว์เซอร์จริง (`tests/smoke-browser.js`) 20/20
+
+ทุกขั้นตรวจว่าไม่มี exception / `console.error` / resource error (ยกเว้น 401 ของ `/api/auth/me` ตอนยังไม่ login และ `favicon.ico` ที่เบราว์เซอร์ขอเอง)
+
+| ขั้น | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| index (guest) | eyebrow + footer "เวอร์ชัน 2.0" | ผ่าน |
+| movies | การ์ดหนัง 8 ลิงก์ | ผ่าน |
+| movie?id=m02 | ชื่อหนัง + แสดงรอบเต็ม | ผ่าน |
+| offers, register | โหลดไม่มี error | ผ่าน |
+| bookings (guest) | redirect ไป login | ผ่าน |
+| login ผ่านฟอร์ม (ปุ่มกรอก demo) | redirect ออกจาก login; `document.cookie` ไม่เห็น `maison_sid`; CDP ยืนยัน cookie `httpOnly` | ผ่าน |
+| seats (m04 พรุ่งนี้) | ผังที่นั่งแสดง เลือก 2 ที่นั่ง (H8, H10) มีปุ่มไป checkout | ผ่าน |
+| checkout → ticket | กด "ยืนยันการจอง" ไปหน้า ticket แสดงรหัส (เช่น MAI-MK3J) | ผ่าน |
+| checkout ที่นั่งเดิมซ้ำ | หน้าแจ้งว่าที่นั่งไม่ว่าง | ผ่าน |
+| bookings | มีประวัติ seed MAI-7Q3F | ผ่าน |
+| account | แสดงชื่อผู้ใช้ demo | ผ่าน |
+| admin (บัญชี user) | redirect ไป index | ผ่าน |
+| logout | cookie ถูกล้าง | ผ่าน |
+| login admin → admin | demo-note "ข้อมูลจากฐานข้อมูล", ผู้ใช้ทั้งหมด 50 (ไม่บวก baseline), กดกรอง 7 วันได้ | ผ่าน |
+| admin-movies / admin-promotions / admin-accounts | รายการหนัง, คูปอง, บัญชี guest แสดง | ผ่าน |
+| localStorage | ไม่มีคีย์ `maison_v1_*` (ว่างทั้งหมด) | ผ่าน |
+
+### บั๊กที่พบและการแก้
+
+- T5 ค้างหลังผ่านครบ — keep-alive socket + PGlite handle เปิดค้าง → `server.closeAllConnections()` + `driver().close()` ใน teardown
+- client parity เทียบ object ข้าม realm (vm) ด้วย `deepEqual` ไม่ผ่าน → เทียบผ่าน `JSON.stringify`
+- smoke รอบแรก fail 1 ขั้นจาก 404 ของ `favicon.ico` ที่เบราว์เซอร์ขออัตโนมัติ (เว็บไม่มี favicon ตั้งแต่ v1, ไม่ใช่บัค) → ยกเว้นในตัวกรอง error
+
+### สรุปรอบ
+
+- T1 44/44 · unit 6/6 · T5 20/20 · client parity 3/3 · smoke 20/20
+- `cinema-issues.md`: ปิด P-03, P-06, P-10, L-1, L-2 · ปิดบางส่วน P-04 · อัปเดต P-05, P-07, P-11 · คงค้าง P-01, P-07, P-08, P-12 · ไม่มี ID ใหม่
+- หนี้การทดสอบ: smoke บน Neon + Vercel Preview (รวมอัปโหลดภาพขึ้น Blob จริง), การแนบไฟล์ผ่าน input file ในเบราว์เซอร์, layout มือถือด้วย screenshot, remember me ข้ามการปิดเบราว์เซอร์
+
+---
+
+## รอบที่ 5 — 15 ตุลาคม 2026 · v2.1 (คำนวณส่วนลดที่ checkout, ปิด P-08)
+
+คำสั่ง: `npm test` (T1 + unit + T5 HTTP + client parity) และ `npm run test:smoke` (Edge headless, PGlite, `seed --reset`)
+
+| ชุด | ผล |
+| --- | --- |
+| T1 mock (`tests/run-tests.js`) | 47/47 (เพิ่ม 3 เคส: redeem แบบ quote, MAISON20/FRIDAY180 ตามวันของรอบ, จองด้วยโค้ดแล้วเก็บ total/discount/promoCode) |
+| Unit (`time` + `pricing`) | 19/19 |
+| T5 HTTP (`tests/api-http.test.js`) | 24/24 (เพิ่ม EVENINGPAIR, โค้ดผิดเงื่อนไขไม่สร้างการจอง, MAISON20/FRIDAY180 เมื่อมีวันนั้นในช่วงฉาย, โค้ดจาก admin ไม่มีกติกา) |
+| Client parity | 3/3 |
+| Smoke เบราว์เซอร์ | 21/21 — ขั้นใหม่: ใส่ MAISON20 รอบวันศุกร์ได้ข้อความ 422, ใส่ EVENINGPAIR ยอดรวม 540 (480 + ค่าบริการ 60), กดยืนยัน ตั๋วแสดง "ส่วนลด (EVENINGPAIR)" |
+
+### บัคที่พบและการแก้
+
+- T1 S1 เทียบ `seedVersion` เดิม (4) เมื่อ bump mock เป็น 5 → ปรับ assertion
+- ข้อมูลสำรอง `SEED.promotions` ใน `api-mock.js` ไม่มี `rule` (ใช้เมื่อโหลด seed.json ไม่ได้) ทำให้ T1 โค้ดทุกใบตอบ "ยังไม่เปิดให้คำนวณ" → sync กับ `seed.json`
+- smoke ขั้นใหม่นับ 422 ของ redeem (ตั้งใจลองโค้ดผิดเงื่อนไข) เป็น error → ยกเว้นเฉพาะ `/api/promotions/redeem` ที่เป็น 422
+
+### สรุปรอบ
+
+- `cinema-issues.md`: ปิด P-08 · ไม่มี ID ใหม่ · คงค้าง P-01, P-04 (บางส่วน), P-07, P-12
+- หนี้การทดสอบ: ยังไม่ได้รัน migrate/ทดสอบกับ Neon จริง; MAISON20 (พุธ) ทดสอบแบบมีเงื่อนไข เพราะรอบฉาย 6 วันอาจไม่มีวันพุธ — ส่วนนี้ครอบด้วย unit `tests/pricing.test.js`
