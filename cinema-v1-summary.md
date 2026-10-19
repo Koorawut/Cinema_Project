@@ -63,7 +63,8 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 
 - v1 (frontend): ผลตรวจฟังก์ชัน/ความปลอดภัยและการทดสอบรอบที่ 1–3 ดู `tests/test-log.md` · สีที่นั่งยึดข้อกำหนดผู้ใช้ (P-09, `design-tokens.md`)
 - **v2.0 (รอบที่ 4):** T1 mock 44/44 · unit เขตเวลา 6/6 · T5 HTTP 20/20 (401/403/415, cookie flags, logout/replay, จองพร้อมกันได้ 201 หนึ่ง 409 หนึ่ง, CRUD หนัง/คูปอง/บัญชี, ภาพ magic bytes ผิด 422, สถิติตรงผลรวม DB) · client parity 3/3 · smoke เบราว์เซอร์ Edge headless 20/20 ครบ 15 หน้า (login → รอบ → ที่นั่ง → checkout → ตั๋ว → ประวัติ, admin ทั้ง 4 หน้า, cookie HttpOnly, localStorage ว่าง)
-- ยังไม่ได้ทดสอบบน Neon จริงและ Preview deployment — ทดสอบทั้งหมดรันกับ PGlite ในเครื่อง (ดูหัวข้อ 8 ขั้นที่ 6)
+- ชุดทดสอบอัตโนมัติทั้งหมดรันกับ PGlite ในเครื่อง; **19 ต.ค. 2026** migrate + seed บน Neon จริงสำเร็จและตรวจ `/api/config`, `/api/movies` บน deployment จริงแล้ว (ดู `tests/test-log.md` รอบที่ 6) — ยังไม่ได้รัน smoke เต็มบน Preview/Production (ดูหัวข้อ 8 ขั้นที่ 6)
+- ผลอ่านโค้ด backend (P-14 ถึง P-17 ใน `cinema-issues.md`): ควรเปลี่ยนรหัส admin เริ่มต้น, เช็คเวลารอบฉายที่ server และกันแก้โรง/ตารางหนังที่มีการจองแล้ว
 
 ## 6. เงื่อนไขที่ยังค้าง (ส่งต่อรอบถัดไป)
 
@@ -115,3 +116,11 @@ DATABASE_URL=pglite:./.pglite COOKIE_INSECURE=1 npm run dev
 | `BLOB_READ_WRITE_TOKEN` | Blob integration | ไม่มีบน Vercel → อัปโหลดภาพตอบ 503 |
 | `COOKIE_INSECURE` | ตั้งเองเฉพาะเครื่อง dev | `1` = cookie ไม่มี `Secure` (http://localhost) |
 | `PORT` | ไม่บังคับ | พอร์ตของ `npm run dev` |
+
+### สถานะ deploy จริง (19 ตุลาคม 2026)
+
+- โปรเจกต์ Vercel `maison-cinema` เชื่อม GitHub `Koorawut/Cinema_Project` (branch `main`); push แล้ว Vercel build เอง
+- Neon เชื่อมผ่าน Vercel integration (`DATABASE_URL` ใน Preview + Production); migrate + seed ทำจากเครื่องด้วย `.env.local` (ถูก gitignore ด้วยกฎ `.env.*`) — **ห้าม commit ไฟล์นี้ และควร reset รหัสผ่านฐานข้อมูลที่ Neon console หากเคยวางลงแชตหรือที่สาธารณะ**
+- ยังไม่ได้ตั้ง `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob) → แนบภาพบน production ตอบ 503
+- Vercel Authentication เปิดอยู่: ทดสอบผ่าน `vercel curl <url>` ได้; ถ้าต้องการให้ทุกคนเปิดเว็บ ปิดที่ Settings → Deployment Protection
+- หลัง deploy ต้อง: เปลี่ยนรหัส `admin`, ทดสอบ smoke (สมัคร, จอง, จองซ้ำสองแท็บต้องได้ 409, admin) แล้วรัน `db:seed -- --refresh-schedule` ทุก ~6 วัน

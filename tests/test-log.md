@@ -270,3 +270,29 @@
 
 - `cinema-issues.md`: ปิด P-08 · ไม่มี ID ใหม่ · คงค้าง P-01, P-04 (บางส่วน), P-07, P-12
 - หนี้การทดสอบ: ยังไม่ได้รัน migrate/ทดสอบกับ Neon จริง; MAISON20 (พุธ) ทดสอบแบบมีเงื่อนไข เพราะรอบฉาย 6 วันอาจไม่มีวันพุธ — ส่วนนี้ครอบด้วย unit `tests/pricing.test.js`
+
+---
+
+## รอบที่ 6 — 19 ตุลาคม 2026 · v2.1 บน Neon + Vercel จริง (ตรวจหลัง deploy)
+
+ไม่มีการแก้โค้ด ไม่ได้รัน `npm test` ในรอบนี้ — เป็นการยืนยันการ deploy และอ่านโค้ด backend
+
+| รายการ | ผล |
+| --- | --- |
+| `npm run db:migrate` กับ Neon | สำเร็จ ("schema พร้อมใช้งาน") |
+| `npm run db:seed -- --reset` กับ Neon | สำเร็จ: users 50, movies 11, bookings 3,299, seats 8,073 |
+| `git push` → Vercel build (`maison-cinema-g6rpa9ndm`) | Ready 11 วินาที |
+| `GET /api/config` บน deployment จริง | 200 — `today` 2026-10-19, 2 โรง, 3 ช่วงเวลา, `serviceFee` 30, `user` null |
+| `GET /api/movies` บน deployment จริง | 200 — 8 เรื่องที่กำลังฉาย (`total` 8) ยอด `ticketsSold` มาจาก DB; The Hollow Choir สถานะ `full` ตาม fixture ของ seed |
+
+หมายเหตุวิธีตรวจ: deployment เปิด Vercel Authentication จึงเรียกผ่าน `vercel curl <url>` (CLI สร้าง bypass token ให้) ไม่ใช่ curl ตรง
+
+### ยังไม่ได้ทดสอบ (หนี้การทดสอบ)
+
+- smoke เต็มบน Preview/Production: สมัคร, login, จอง, จองที่นั่งเดียวกันสองแท็บต้องได้ 409, admin CRUD, สถิติ
+- แนบภาพโปสเตอร์/คูปอง (ยังไม่มี `BLOB_READ_WRITE_TOKEN`)
+- เทสต์ยืนยัน P-14 ถึง P-17 (พบจากอ่านโค้ด)
+
+### สรุปรอบ
+
+- `cinema-issues.md`: เพิ่ม P-14, P-15, P-16, P-17 · ไม่ปิดรายการใด · P-06 อัปเดตหมายเหตุ · คงค้าง P-01, P-04, P-07, P-12
