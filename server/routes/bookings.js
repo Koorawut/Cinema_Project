@@ -124,13 +124,28 @@ async function withSeats(rows) {
   return rows.map((r) => rowToBooking(r, byBooking[r.id]));
 }
 
-/* GET /api/me/bookings — ตัวตนจาก session เท่านั้น */
+/* GET /api/me/bookings?page=&limit= — ตัวตนจาก session เท่านั้น
+   ไม่ส่ง page = รูปแบบเดิม (array ทั้งหมด) ส่ง page = { items, page, limit, total, totalPages }
+   page จำกัดบนที่ 1e6 กันเลขหลักยาวเกิน bigint ของ Postgres (A4 LOW-1)
+   หน้าเกินขอบเขต → คืนหน้าสุดท้ายแทนลิสต์เปล่า (metadata ตรงหน้าที่คืนจริง) */
 async function mine(ctx) {
   const u = await auth.requireUser(ctx.req);
-  const rows = await db.query(
-    'SELECT id, code, user_id, movie_id, movie_title, showtime_id, starts_at, hall, unit_price, service_fee, total, promo_code, discount, status, created_at ' +
-    'FROM bookings WHERE user_id = $1 ORDER BY created_at DESC', [u.id]);
-  return withSeats(rows);
+  const COLS = 'id, code, user_id, movie_id, movie_title, showtime_id, starts_at, hall, unit_price, service_fee, total, promo_code, discount, status, created_at';
+  const ORDER = 'ORDER BY created_at DESC, id DESC'; // id เป็น tiebreaker ให้ลำดับเสถียร
+  const rawPage = ctx.query.get('page');
+  if (rawPage == null || rawPage === '') {
+    const rows = await db.query('SELECT ' + COLS + ' FROM bookings WHERE user_id = $1 ' + ORDER, [u.id]);
+    return withSeats(rows);
+  }
+  const reqPage = Math.min(1000000, Math.max(1, parseInt(rawPage, 10) || 1));
+  const limit = Math.max(1, Math.min(100, parseInt(ctx.query.get('limit'), 10) || 20));
+  const total = Number((await db.one('SELECT count(*)::int AS n FROM bookings WHERE user_id = $1', [u.id])).n);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const page = Math.min(reqPage, totalPages);
+  const rows = await db.query('SELECT ' + COLS + ' FROM bookings WHERE user_id = $1 ' + ORDER + ' LIMIT $2 OFFSET $3',
+    [u.id, limit, (page - 1) * limit]);
+  const items = await withSeats(rows);
+  return { items, page, limit, total, totalPages };
 }
 
 module.exports = { create, mine };

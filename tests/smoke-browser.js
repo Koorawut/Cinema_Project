@@ -107,8 +107,8 @@ async function main() {
   await step('index.html (ยังไม่ login)', async () => {
     await open('index.html'); await settle();
     const t = await evaluate('document.body.innerText');
-    if (!/เวอร์ชัน 2\.2/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.2'); }
-    return 'eyebrow+footer v2.2';
+    if (!/เวอร์ชัน 2\.3/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.3'); }
+    return 'eyebrow+footer v2.3';
   });
   await step('movies.html + ค้นหา', async () => {
     await open('movies.html'); await settle();
@@ -239,7 +239,35 @@ async function main() {
     return 'ผู้ใช้ทั้งหมด ' + users;
   });
   await step('admin-movies.html', async () => { await open('admin-movies.html'); await sleep(1000); if (!/The Hollow Choir/.test(await text())) { throw new Error('ไม่มีรายการหนัง'); } });
-  await step('admin-promotions.html', async () => { await open('admin-promotions.html'); await sleep(1000); });
+  await step('admin-promotions.html + สร้างคูปองพร้อมกติกา (UI)', async () => {
+    await open('admin-promotions.html'); await sleep(1000);
+    const before = await evaluate('MAISON_API.adminPromotions().then(function (l) { return l.length; })');
+    await evaluate('document.getElementById("add-promotion").click()');
+    await waitFor('!!document.getElementById("promotion-form")');
+    // เลือกชนิดกติกา percent_off → ฟิลด์ value/weekday ต้องโผล่
+    await evaluate('var s = document.getElementById("promo-rule-type"); s.value = "percent_off"; s.dispatchEvent(new Event("change"));');
+    if (!await evaluate('!document.getElementById("promo-rule-value-field").hidden')) { throw new Error('ฟิลด์มูลค่าไม่แสดง'); }
+    const code = 'SMOKE' + String(Date.now()).slice(-5);
+    await evaluate('var f = document.getElementById("promotion-form");' +
+      'f.querySelector("#promo-code").value = ' + JSON.stringify(code) + ';' +
+      'f.querySelector("#promo-title").value = "คูปองทดสอบ smoke";' +
+      'f.querySelector("#promo-summary").value = "สรุปทดสอบ";' +
+      'f.querySelector("#promo-details").value = "รายละเอียดทดสอบ";' +
+      'f.querySelector("#promo-rule-value").value = "25";');
+    await evaluate('document.getElementById("promotion-form").requestSubmit()');
+    await waitFor('!document.getElementById("promotion-form")', 8000); // ปิด dialog = บันทึกสำเร็จ
+    await waitFor('document.querySelectorAll("#promotion-rows tr").length > ' + before, 8000);
+    const rowText = await evaluate('Array.prototype.map.call(document.querySelectorAll("#promotion-rows tr"), function (tr) { return tr.innerText; }).join("\\n")');
+    if (rowText.indexOf(code) === -1) { throw new Error('ไม่พบแถวคูปองใหม่'); }
+    if (rowText.indexOf('ลด 25%') === -1) { throw new Error('สรุปกติกาไม่แสดง ลด 25%'); }
+    // เก็บ id เพื่อลบทิ้ง — คืนค่าจาก API ตรง ๆ เพราะแถวตารางไม่ได้ใส่ data-id
+    const id = await evaluate('MAISON_API.adminPromotions().then(function (l) { var p = l.filter(function (x) { return x.code === ' + JSON.stringify(code) + '; })[0]; return p && p.id; })');
+    if (id) {
+      if (!await evaluate('MAISON_API.adminPromotions().then(function (l) { var p = l.filter(function (x) { return x.id === ' + JSON.stringify(id) + '; })[0]; return !!(p && p.rule && p.rule.type === "percent_off" && p.rule.value === 25); })')) { throw new Error('กติกา percent_off 25 ไม่ถูกบันทึก'); }
+      await evaluate('MAISON_API.adminDeletePromotion(' + JSON.stringify(id) + ')');
+    } else { throw new Error('ไม่พบคูปองที่สร้าง'); }
+    return 'สร้าง+ลบคูปอง ' + code + ' กติกา percent_off 25';
+  });
   await step('admin-accounts.html', async () => { await open('admin-accounts.html'); await sleep(1000); if (!/guest01/.test(await text())) { throw new Error('ไม่มีบัญชี guest'); } });
 
   await step('ไม่มีคีย์ maison_v1_* ใน localStorage', async () => {

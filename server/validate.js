@@ -54,6 +54,40 @@ function promotionFields(data) {
   return { code, title, summary, details, terms: terms.map((t) => t.trim()).filter(Boolean) };
 }
 
+/* กติกาส่วนลดของคูปอง — รูปแบบเดียวกับ assets/data/seed.json และ server/pricing.js
+   rule เป็น null ได้ = โค้ดโชว์อย่างเดียว ยังไม่เปิดให้คำนวณส่วนลด
+   ช่วงค่าต้องครอบความหมายของ pricing.quote (เช่น percent 1–99 จึงลดได้จริงทุกกรณี) */
+const RULE_TYPES = ['percent_off', 'bundle_price', 'unit_price'];
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+function optInt(v) {
+  if (v == null || v === '') { return null; }
+  const n = Number(v);
+  return Number.isInteger(n) ? n : NaN;
+}
+function promotionRule(data) {
+  const rule = (data || {}).rule;
+  if (rule == null) { return null; }
+  if (typeof rule !== 'object' || Array.isArray(rule)) { throw new ApiError(422, 'รูปแบบกติกาส่วนลดไม่ถูกต้อง'); }
+  const type = str(rule.type).trim();
+  if (RULE_TYPES.indexOf(type) === -1) { throw new ApiError(422, 'ชนิดกติกาส่วนลดไม่ถูกต้อง'); }
+  const value = optInt(rule.value);
+  if (type === 'percent_off' && (value < 1 || value > 99)) { throw new ApiError(422, 'ส่วนลดต้องเป็นตัวเลข 1–99'); }
+  if (type === 'bundle_price' && (value < 1 || value > 100000)) { throw new ApiError(422, 'ราคากลุ่มต้องเป็นตัวเลข 1–100,000 บาท'); }
+  if (type === 'unit_price' && (value < 1 || value > 5000)) { throw new ApiError(422, 'ราคาต่อที่นั่งต้องเป็นตัวเลข 1–5,000 บาท'); }
+  if (value == null || isNaN(value)) { throw new ApiError(422, 'กรุณาระบุมูลค่าของกติกาส่วนลดเป็นตัวเลข'); }
+  const weekday = optInt(rule.weekday);
+  if (weekday != null && (weekday < 0 || weekday > 6)) { throw new ApiError(422, 'วันในสัปดาห์ไม่ถูกต้อง'); }
+  const seatCount = optInt(rule.seatCount);
+  if (seatCount != null && (seatCount < 1 || seatCount > 99)) { throw new ApiError(422, 'จำนวนที่นั่งต้องเป็นตัวเลข 1–99'); }
+  const timeFrom = rule.timeFrom == null || rule.timeFrom === '' ? null : str(rule.timeFrom).trim();
+  const timeTo = rule.timeTo == null || rule.timeTo === '' ? null : str(rule.timeTo).trim();
+  if ((timeFrom && !TIME_RE.test(timeFrom)) || (timeTo && !TIME_RE.test(timeTo))) {
+    throw new ApiError(422, 'เวลาต้องอยู่ในรูปแบบ HH:MM (เช่น 18:00)');
+  }
+  if (timeFrom && timeTo && timeFrom >= timeTo) { throw new ApiError(422, 'เวลาเริ่มต้องมาก่อนเวลาสิ้นสุด'); }
+  return { type, value, weekday, timeFrom, timeTo, seatCount };
+}
+
 /* ฟิลด์ภาพยนตร์ (ยกเว้นตารางฉายและโปสเตอร์) — data คือข้อมูลที่รวมค่าเดิมแล้ว */
 function movieFields(data) {
   const title = str(data.title).trim();
@@ -76,4 +110,4 @@ function movieFields(data) {
   return { title, price: Math.round(price), genres, durationMin, ageRating, director, synopsis, releaseDate };
 }
 
-module.exports = { registration, newPassword, promotionFields, movieFields, str };
+module.exports = { registration, newPassword, promotionFields, promotionRule, movieFields, str };

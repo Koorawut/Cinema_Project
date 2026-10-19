@@ -51,6 +51,7 @@
           <tbody id="admin-movie-tbody"></tbody>
         </table>
       </div>
+      <div class="gap-t" id="admin-movie-pager"></div>
       <p class="small muted gap-t" id="admin-movie-count"></p>
     </div>
   </div>
@@ -63,6 +64,7 @@
       var tbody = document.getElementById('admin-movie-tbody');
       var searchEl = document.getElementById('movie-search');
       var debounceTimer = null;
+      var page = 1;
 
       function statusBadge(todayStatus) {
         if (todayStatus === 'available') { return '<span class="badge badge-success">มีที่นั่งวันนี้</span>'; }
@@ -85,9 +87,11 @@
         tbody.innerHTML = '';
         tbody.appendChild(E('tr', null, '')).innerHTML =
           '<td colspan="7"><div class="spinner" role="status" aria-label="กำลังโหลด"></div></td>';
-        MAISON_API.adminMovies({ search: searchEl.value.trim() }).then(function (movies) {
+        MAISON_API.adminMovies({ search: searchEl.value.trim(), page: page }).then(function (out) {
+          var movies = out.items || out;
           tbody.innerHTML = '';
-          document.getElementById('admin-movie-count').textContent = 'ทั้งหมด ' + movies.length + ' เรื่อง';
+          document.getElementById('admin-movie-count').textContent = 'ทั้งหมด ' + (out.total != null ? out.total : movies.length) + ' เรื่อง';
+          MAISON.pager(document.getElementById('admin-movie-pager'), out, function (p) { page = p; load(); });
           movies.forEach(function (m) {
             var tr = E('tr');
             tr.setAttribute('data-od-id', 'admin-movie-row-' + m.id);
@@ -276,7 +280,7 @@
       document.getElementById('add-movie-btn').addEventListener('click', function () { openMovieDialog(null); });
       searchEl.addEventListener('input', function () {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(load, 280);
+        debounceTimer = setTimeout(function () { page = 1; load(); }, 280);
       });
 
       load();

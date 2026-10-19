@@ -1,6 +1,6 @@
 # สรุปโครงการ — เว็บจองตั๋วหนัง MAISON (frontend v1 + backend v2)
 
-อัปเดต: 19 ตุลาคม 2026 (v2.2 — ความปลอดภัย + ตรรกะจอง + cron ตารางฉายรายวัน) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.2 (v2.2)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
+อัปเดต: 19 ตุลาคม 2026 (v2.3 — ปิด P-18, P-19 + ฟอร์มกติกาคูปองฝั่ง admin + แบ่งหน้า) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.3 (v2.3)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
 เอกสารหลัก: `cinema-frontend-plan.md` (สัญญา API หัวข้อ 5, Rubrics หัวข้อ 3.1) · `CHANGELOG.md` · `cinema-issues.md` · `tests/test-log.md`
 
 ## 1. สิ่งที่ส่งมอบ
@@ -66,12 +66,14 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 - ชุดทดสอบอัตโนมัติทั้งหมดรันกับ PGlite ในเครื่อง; **19 ต.ค. 2026** migrate + seed บน Neon จริงสำเร็จและตรวจ `/api/config`, `/api/movies` บน deployment จริงแล้ว (ดู `tests/test-log.md` รอบที่ 6) และรัน smoke ผ่านบน production แล้วในรอบที่ 8 (หัวข้อถัดไป); ยังไม่ได้ทดสอบ: แนบภาพในเบราว์เซอร์จริง, remember me ข้ามการปิดเบราว์เซอร์, layout มือถือด้วย screenshot
 - **v2.2 (รอบที่ 7):** แก้ P-12, P-15, P-16, P-17 + P-14 ฝั่งโค้ด + cron เลื่อนตารางฉาย — T1 49/49 · unit 19/19 · T5 30/30 · client parity 3/3 · รวม 101/101 · smoke 22/22; เปิดใหม่ P-18 (ลบหนังที่มี booking อนาคต), P-19 (redeem ไม่เช็ค isPast); P-14 รอเปลี่ยนรหัส admin บน production
 - **v2.2 บน production (รอบที่ 8, 19 ต.ค. 2026):** Cluster Head ยิง curl ตรงกับ production `maison-cinema-7l15vd2oq-ai-test-project1.vercel.app` — **smoke ผ่าน 14/14**: `/api/config` + `/api/movies` 200 จาก Neon, เวอร์ชัน "2.2 (v2.2)", cron ไม่มี/ผิด Bearer → 401 (fail-closed), สมัคร/login/`me` (บัญชี `qa_prod_1`), จองรอบที่เริ่มไปแล้วถูกปฏิเสธ (P-15), จองรอบอนาคตสำเร็จ (`MAI-G92Z`), จองซ้ำ → 409 + `conflicts`, แก้โรง → 409 / แก้ราคา → 200 (P-16), 403/401 บน admin endpoint, cookie `HttpOnly; Secure; SameSite=Lax`, สถิติตรง DB (ผู้ใช้ 52, การจอง 3,302) — ของทดสอบ `qa_prod_1`/`MAI-G92Z` ฝากไว้ใน DB เป็นหลักฐาน
+- **v2.3 (รอบที่ 9):** ปิด P-18 (ลบหนังที่มี booking รอบอนาคต → 409), P-19 (redeem รอบที่เริ่มฉายไปแล้ว → 422) + ฟอร์มกำหนดกติกาคูปองฝั่ง admin + pagination — T1 52/52 · unit 19/19 · T5 34/34 · client parity 3/3 · รวม 108/108 · smoke 22/22; ยังไม่ได้ smoke บน production ของ v2.3 (รอบที่ 8 ยืนยัน v2.2)
 
 ## 6. เงื่อนไขที่ยังค้าง (ส่งต่อรอบถัดไป)
 
-- Pagination (Rubric 8 bonus) — API ยังคืนทั้งหมดเหมือน mock; เพิ่ม `?page=&limit=` ที่ `admin/users`, `admin/movies`, `me/bookings` ได้
-- **P-14 (ยอมรับความเสี่ยง):** โค้ด seed แก้ครบใน v2.2 (บัญชีสาธิตใช้ได้เฉพาะ dev) แต่ผู้ใช้ตัดสินใจไม่เปลี่ยนรหัส `admin` บน production และไม่ reset รหัสผ่าน Neon DB เพราะเป็นโปรเจกต์เรียน ไม่มีผู้ใช้จริง — หากวันหน้าเปิดใช้จริง ให้เปลี่ยนรหัสผ่านก่อน · **P-18:** กันลบหนังที่มี booking รอบอนาคต · **P-19:** เพิ่ม `isPast` ที่ redeem
-- P-04 นิยามการนับ visitor (ตอนนี้ไม่มีตารางนับผู้เข้าชม) · P-07 ข้อมูล/ภาพจริง · P-01 ตรวจภาพจริงรายหน้า · ปิดแล้วในรอบก่อน: P-03, P-06, P-08, P-10, P-12, P-15, P-16, P-17
+- Pagination (Rubric 8 bonus) — **ทำแล้วใน v2.3**: `admin/users`, `admin/movies`, `me/bookings` รับ `?page=&limit=` (ไม่ส่ง = array เดิม, ส่ง = `{items,page,limit,total,totalPages}`, limit clamp 1–100 default 20, หน้าเกิน snap หน้าสุดท้าย) พร้อม UI `MAISON.pager`
+- ฟอร์มกติกาคูปอง — **ทำแล้วใน v2.3**: admin กำหนดกติกาส่วนลด (3 ชนิดตาม seed: percent_off / bundle_price / unit_price + วันในสัปดาห์/ช่วงเวลา) ตอนสร้าง/แก้คูปองได้จากหน้า `admin-promotions.html` — โค้ดที่ admin สร้างเองคำนวณส่วนลดได้แล้ว (ปิดข้อจำกัดท้าย P-08)
+- **P-14 (ยอมรับความเสี่ยง):** โค้ด seed แก้ครบใน v2.2 (บัญชีสาธิตใช้ได้เฉพาะ dev) แต่ผู้ใช้ตัดสินใจไม่เปลี่ยนรหัส `admin` บน production และไม่ reset รหัสผ่าน Neon DB เพราะเป็นโปรเจกต์เรียน ไม่มีผู้ใช้จริง — หากวันหน้าเปิดใช้จริง ให้เปลี่ยนรหัสผ่านก่อน
+- P-04 นิยามการนับ visitor (ตอนนี้ไม่มีตารางนับผู้เข้าชม) · P-07 ข้อมูล/ภาพจริง · P-01 ตรวจภาพจริงรายหน้า · ปิดแล้วในรอบก่อน: P-03, P-06, P-08, P-10, P-12, P-15, P-16, P-17, P-18, P-19
 - Rubric 1 (wireframe/architecture) — ยังต้องถามผู้สอนว่าส่งไฟล์แยกหรืออ้างหัวข้อ 2 ของไฟล์นี้ + แผนได้
 - Rubric 9 — cookie เป็น HttpOnly จึงแสดง session ID ฝั่ง JS ไม่ได้ (ตั้งใจ); หลักฐานวงจร session ใช้ DevTools → Application → Cookies + ตาราง `sessions` แทน — ควรยืนยันกับผู้สอน
 

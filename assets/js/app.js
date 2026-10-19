@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.2.0';
+  var VERSION = '2.3.0';
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -309,7 +309,7 @@
       (user ? '<a href="account.html">บัญชีของฉัน</a>' : '<a href="login.html">เข้าสู่ระบบ</a>') +
       '  </nav>' +
       '  <div class="footer-meta">' +
-      '    <p class="version-badge" data-od-id="version-badge">เวอร์ชัน 2.2 (v2.2)</p>' +
+      '    <p class="version-badge" data-od-id="version-badge">เวอร์ชัน 2.3 (v2.3)</p>' +
       '    <p>ระบบสาธิตเพื่อการศึกษา — ข้อมูลภาพยนตร์และการจองเป็นชุดตัวอย่างในฐานข้อมูล</p>' +
       '    <p>&copy; 2026 MAISON Cinema Project</p>' +
       '  </div>' +
@@ -349,6 +349,50 @@
     toast((err && err.message) ? err.message : 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง', 'error');
   }
 
+  /* ---------- ปุ่มสลับหน้า (pagination) ----------
+     สร้างแถบ prev/next + หมายเลขหน้า สไตล์เดียวกับปุ่มที่มีอยู่
+     mount: element ที่จะวางแถบ, page:  { page, limit, total, totalPages },
+     onGo: callback เมื่อกดไปหน้าอื่น (รับเลขหน้า) */
+  function pager(mount, page, onGo) {
+    mount.innerHTML = '';
+    if (!page || page.totalPages <= 1) { return; }
+    var bar = el('div', 'toolbar pager');
+    bar.setAttribute('data-od-id', 'pager');
+    var prev = el('button', 'btn btn-secondary', '← ก่อนหน้า');
+    prev.type = 'button';
+    prev.disabled = page.page <= 1;
+    prev.addEventListener('click', function () { onGo(page.page - 1); });
+    bar.appendChild(prev);
+    /* หมายเลขหน้าแบบย่อ: หน้าแรก … หน้ารอบปัจจุบัน … หน้าสุดท้าย */
+    var nums = {};
+    [1, page.totalPages, page.page - 1, page.page, page.page + 1].forEach(function (n) {
+      if (n >= 1 && n <= page.totalPages) { nums[n] = true; }
+    });
+    var sorted = Object.keys(nums).map(Number).sort(function (a, b) { return a - b; });
+    var last = 0;
+    sorted.forEach(function (n) {
+      if (n - last > 1) { bar.appendChild(el('span', 'small muted', '…')); }
+      last = n;
+      var b = el('button', 'btn btn-link', String(n));
+      b.type = 'button';
+      if (n === page.page) {
+        b.className = 'btn btn-link';
+        b.setAttribute('aria-current', 'page');
+        b.disabled = true; // หน้าปัจจุบันกดไม่ได้
+      }
+      b.addEventListener('click', function () { onGo(n); });
+      bar.appendChild(b);
+    });
+    var next = el('button', 'btn btn-secondary', 'ถัดไป →');
+    next.type = 'button';
+    next.disabled = page.page >= page.totalPages;
+    next.addEventListener('click', function () { onGo(page.page + 1); });
+    bar.appendChild(next);
+    var info = el('span', 'small muted', 'หน้า ' + page.page + ' / ' + page.totalPages + ' · ทั้งหมด ' + page.total + ' รายการ');
+    bar.appendChild(info);
+    mount.appendChild(bar);
+  }
+
   /* ---------- เผยแพร่ API สาธารณะ ---------- */
   window.MAISON = {
     version: VERSION,
@@ -370,6 +414,7 @@
     dialog: dialog,
     confirm: confirm,
     init: init,
-    handleApiError: handleApiError
+    handleApiError: handleApiError,
+    pager: pager
   };
 })();
