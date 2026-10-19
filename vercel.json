@@ -41,5 +41,11 @@
     "api/index.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/refresh-schedule",
+      "schedule": "0 17 * * *"
+    }
+  ]
 }

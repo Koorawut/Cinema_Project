@@ -14,7 +14,7 @@ const V = require('../validate');
 const pricing = require('../pricing');
 const promotions = require('./promotions');
 const { ApiError } = require('../http');
-const { toBangkokISO } = require('../time');
+const { toBangkokISO, isPast } = require('../time');
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัด 0/O/1/I ที่อ่านสับสน
 
@@ -50,6 +50,7 @@ async function create(ctx) {
   const found = await M.getShowtime(String(ctx.body.showtimeId || ''));
   if (!found) { throw new ApiError(404, 'ไม่พบรอบฉายนี้'); }
   const { movie, showtime: st } = found;
+  if (isPast(st.startsAt)) { throw new ApiError(422, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถจองได้ กรุณาเลือกรอบอื่น'); }
   if (st.status === 'full') { throw new ApiError(409, 'รอบฉายนี้เต็มแล้ว กรุณาเลือกรอบอื่น'); }
 
   const raw = Array.isArray(ctx.body.seatIds) ? ctx.body.seatIds : [];

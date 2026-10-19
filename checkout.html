@@ -29,10 +29,15 @@
       MAISON_API.seats(stId).then(function (res) {
         var st = res.showtime, movie = res.movie, fee = res.serviceFee;
 
-        /* ตรวจว่าที่นั่งที่เลือกยังว่างอยู่ */
+        /* ตรวจว่าที่นั่งที่เลือกยังว่างอยู่ — แยกกรณีรหัสไม่รู้จัก (P-12)
+           ออกจากกรณีถูกจองไปแล้ว เพื่อให้ข้อความตรงสาเหตุจริง
+           (E() ใส่ข้อความด้วย textContent จึงปลอดภัยแม้ id มีอักขระพิเศษ) */
+        var unknown = seatParam.filter(function (id) {
+          return !res.seats.some(function (x) { return x.id === id; });
+        });
         var taken = seatParam.filter(function (id) {
           var s = res.seats.filter(function (x) { return x.id === id; })[0];
-          return !s || s.status === 'booked';
+          return s && s.status === 'booked';
         });
 
         main.innerHTML = '';
@@ -43,11 +48,21 @@
         head.appendChild(E('p', 'page-sub', 'โปรดตรวจสอบรายละเอียดก่อนกดยืนยัน — การจองสำเร็จแล้วแก้ไขที่นั่งไม่ได้'));
         main.appendChild(head);
 
-        if (taken.length) {
+        if (unknown.length || taken.length) {
           var conflict = E('div', 'empty-state card');
           conflict.appendChild(E('div', 'glyph', '!'));
-          conflict.appendChild(E('h2', null, 'ที่นั่งที่เลือกถูกจองไปแล้ว'));
-          conflict.appendChild(E('p', 'small', 'ที่นั่ง: ' + taken.join(', ')));
+          if (unknown.length) {
+            /* P-12: รหัสที่นั่งไม่มีในรอบนี้ (URL ถูกแก้/รอบเปลี่ยน) — ไม่ใช่การถูกจองแย่ง */
+            conflict.appendChild(E('h2', null, 'ไม่พบรหัสที่นั่งนี้ในรอบฉาย'));
+            conflict.appendChild(E('p', 'small', 'รหัสที่นั่ง: ' + unknown.join(', ')));
+          }
+          if (taken.length) {
+            conflict.appendChild(E('h2', null, 'ที่นั่งที่เลือกถูกจองไปแล้ว'));
+            conflict.appendChild(E('p', 'small', 'ที่นั่ง: ' + taken.join(', ')));
+          }
+          if (unknown.length && !taken.length) {
+            conflict.appendChild(E('p', 'small', 'กรุณาเลือกที่นั่งใหม่จากหน้าเลือกที่นั่ง'));
+          }
           var back = E('a', 'btn btn-primary', 'กลับไปเลือกที่นั่งใหม่');
           back.href = 'seats.html?st=' + encodeURIComponent(stId);
           conflict.appendChild(back);

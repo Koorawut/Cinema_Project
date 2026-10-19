@@ -107,8 +107,8 @@ async function main() {
   await step('index.html (ยังไม่ login)', async () => {
     await open('index.html'); await settle();
     const t = await evaluate('document.body.innerText');
-    if (!/เวอร์ชัน 2\.1/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.1'); }
-    return 'eyebrow+footer v2.1';
+    if (!/เวอร์ชัน 2\.2/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.2'); }
+    return 'eyebrow+footer v2.2';
   });
   await step('movies.html + ค้นหา', async () => {
     await open('movies.html'); await settle();
@@ -172,6 +172,16 @@ async function main() {
     await open('checkout.html?st=' + encodeURIComponent(stId) + '&seats=' + encodeURIComponent(ids));
     await settle();
     return (await text()).match(/ถูกจอง|ไม่ว่าง|เต็ม/) ? 'แจ้งว่าที่นั่งไม่ว่าง' : 'โหลดแล้ว';
+  });
+  await step('checkout ที่นั่ง id ไม่มีจริง (P-12) → แจ้ง "ไม่พบรหัสที่นั่ง" ต่างจากที่ถูกจอง', async () => {
+    await open('checkout.html?st=' + encodeURIComponent(stId) + '&seats=' + encodeURIComponent('hall-99-Z99'));
+    await settle();
+    const t = await text();
+    if (!/ไม่พบรหัสที่นั่งนี้ในรอบฉาย/.test(t)) {
+      throw new Error('ข้อความ P-12 ไม่ตรง (ได้: ' + t.slice(0, 120).replace(/\s+/g, ' ') + ')');
+    }
+    if (/ถูกจองไปแล้ว/.test(t)) { throw new Error('ต้องไม่ใช้ข้อความ "ถูกจอง" กับ id ที่ไม่มีจริง'); }
+    return 'แจ้งไม่พบรหัสที่นั่ง';
   });
   await step('checkout + โค้ด EVENINGPAIR → ยอด 540 → ticket แสดงส่วนลด', async () => {
     const pick = await evaluate('MAISON_API.ready.then(function(){return MAISON_API.showtimes("m07", MAISON_API.showDates()[1])}).then(function(r){var st=r.items.filter(function(s){return s.period==="evening"})[0];return MAISON_API.seats(st.id).then(function(x){return st.id+"|"+x.seats.filter(function(s){return s.status==="available"}).slice(0,2).map(function(s){return s.id}).join(",")})})');
