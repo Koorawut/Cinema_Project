@@ -1,6 +1,6 @@
 {
   "name": "maison-cinema",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "description": "MAISON Cinema — static frontend + Vercel Functions + Neon Postgres + Vercel Blob",
   "license": "UNLICENSED",

@@ -527,6 +527,23 @@
     await A.logout();
   });
 
+  t('S6 โปรโมชัน', 'P-19 parity: redeem รอบที่เริ่มฉายไปแล้ว = 422 ข้อความเดียวกับ server, รอบอนาคตยัง quote ได้, ตรวจรหัสอย่างเดียวไม่โดนกัน', async function () {
+    /* fake now 23:00 ของวันนี้ — รอบเช้า 10:30 เริ่มฉายไปแล้วแน่นอน (ไม่พึ่งเวลาจริงของเครื่อง) */
+    await withFakeNow(todayLocalMs(23, 0), async function () {
+      var past = stIdOf('m04', refTodayISO(), 'morning');
+      var err = await expectError(A.redeem('MAISON20', past, ['hall-02-A1']), 422);
+      eq(err.message, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถใช้โค้ดส่วนลดได้ กรุณาเลือกรอบอื่น',
+        'P-19 ต้องชนก่อนเงื่อนไขกติกา (วันพุธ) — ข้อความต้องตรงตัวเหมือน server');
+      /* รอบอนาคตยังคำนวณ quote ได้ตามปกติ */
+      var evening = stIdOf('m07', refISO(1), 'evening');
+      var q = await A.redeem('EVENINGPAIR', evening, ['hall-02-A1', 'hall-02-A2']);
+      eq(q.quote.total, 480 + 60, 'รอบอนาคตต้องยัง quote ได้');
+    });
+    /* ไม่ส่งรอบ (ตรวจรหัสอย่างเดียว) ไม่โดน guard เวลา — ใช้เวลาจริงก็ได้ */
+    var r = await A.redeem('MAISON20');
+    eq(r.valid, true);
+  });
+
   /* ============================================================ S7 */
   t('S7 แอดมิน', 'ผู้ใช้ทั่วไปเรียกงาน admin = 403', async function () {
     await login('tester1', 'Passw0rd1');
@@ -667,6 +684,73 @@
     await login('tester1', 'Passw0rd1');
     var snap = (await A.myBookings()).filter(function (b) { return b.movieTitle === 'Test Reel พิเศษ'; });
     eq(snap.length, 1, 'ประวัติต้องยังแสดงชื่อหนังที่ถูกลบ (snapshot)');
+    await A.logout();
+  });
+
+  t('S7 แอดมิน', 'กติกาคูปอง (parity กับ server): สร้าง/แก้/ล้าง rule + redeem คำนวณตามกติกา + ค่าไม่ valid = 422 ข้อความตรง', async function () {
+    await login('admin', 'admin123');
+    var fields = { code: 'PARITY-R', title: 'กติกา parity', summary: 'สรุป', details: 'รายละเอียด', terms: [] };
+    var st = stIdOf('m04', refISO(1), 'morning'); // m04 รอบเช้า 240 บาท — วันพรุ่งนี้เป็นอนาคตเสมอ
+    var p = await A.adminCreatePromotion(Object.assign({}, fields, { rule: { type: 'percent_off', value: 10 } }));
+    eq(p.rule.type, 'percent_off');
+    eq(p.rule.value, 10);
+    eq(p.rule.weekday, null);
+    var kept = await A.adminUpdatePromotion(p.id, { title: 'ยังใช้กติกาเดิม' });
+    eq(kept.rule.type, 'percent_off', 'ไม่ส่ง rule ตอนแก้ = ต้องใช้กติกาเดิม');
+    var q = await A.redeem('PARITY-R', st, ['hall-02-A1']);
+    eq(q.quote.ticketSubtotal, 240);
+    eq(q.quote.total, Math.round(240 * 0.9) + 30, 'percent_off 10% = 216 + ค่าบริการ 30');
+    var switched = await A.adminUpdatePromotion(p.id, { rule: { type: 'unit_price', value: 150 } });
+    eq(switched.rule.type, 'unit_price');
+    eq((await A.redeem('PARITY-R', st, ['hall-02-A1'])).quote.total, 150 + 30, 'unit_price 150 = 150 + ค่าบริการ 30');
+    var cleared = await A.adminUpdatePromotion(p.id, { rule: null });
+    eq(cleared.rule, null, 'rule:null ต้องล้างกติกา');
+    var err = await expectError(A.redeem('PARITY-R', st, ['hall-02-A1']), 422);
+    eq(err.message, 'โค้ดนี้ยังไม่เปิดให้คำนวณส่วนลด');
+    /* validation parity — ข้อความต้องตรงตัวเหมือน server/validate.js */
+    var e1 = await expectError(A.adminCreatePromotion(Object.assign({}, fields, { code: 'PARITY-B1', rule: { type: 'percent_off', value: 0 } })), 422);
+    eq(e1.message, 'ส่วนลดต้องเป็นตัวเลข 1–99');
+    var e2 = await expectError(A.adminCreatePromotion(Object.assign({}, fields, { code: 'PARITY-B2', rule: { type: 'magic', value: 10 } })), 422);
+    eq(e2.message, 'ชนิดกติกาส่วนลดไม่ถูกต้อง');
+    var e3 = await expectError(A.adminCreatePromotion(Object.assign({}, fields, { code: 'PARITY-B3', rule: { type: 'percent_off' } })), 422);
+    eq(e3.message, 'กรุณาระบุมูลค่าของกติกาส่วนลดเป็นตัวเลข');
+    var e4 = await expectError(A.adminUpdatePromotion(p.id, { rule: { type: 'percent_off', value: 10, timeFrom: '18:00', timeTo: '10:00' } }), 422);
+    eq(e4.message, 'เวลาเริ่มต้องมาก่อนเวลาสิ้นสุด');
+    eq((await A.promotion(p.id)).rule, null, 'กติกาเดิมต้องไม่ถูกแก้เมื่อ update ผิด validate');
+    await A.adminDeletePromotion(p.id);
+    await A.logout();
+  });
+  t('S7 แอดมิน', 'แบ่งหน้า (parity กับ server): ส่ง page = {items,page,limit,total,totalPages}, ไม่ส่ง = array เดิม, หน้าเกิน = หน้าสุดท้าย, limit clamp 100', async function () {
+    await login('admin', 'admin123');
+    var usersAll = await A.adminUsers();
+    ok(Array.isArray(usersAll), 'ไม่ส่ง page ต้องคืน array รูปแบบเดิม');
+    var usersPg = await A.adminUsers({ page: 1, limit: 2 });
+    eq(Object.keys(usersPg).sort(), ['items', 'limit', 'page', 'total', 'totalPages']);
+    eq(usersPg.page, 1);
+    eq(usersPg.limit, 2);
+    eq(usersPg.total, usersAll.length);
+    eq(usersPg.totalPages, Math.max(1, Math.ceil(usersAll.length / 2)));
+    eq(usersPg.items, usersAll.slice(0, 2), 'หน้า 1 ต้องตรงกับ slice ของรูปแบบเดิม');
+    var usersLast = await A.adminUsers({ page: 99, limit: 2 });
+    eq(usersLast.page, usersPg.totalPages, 'หน้าเกินขอบเขตต้องคืนหน้าสุดท้าย ไม่ใช่ลิสต์เปล่า');
+    eq(usersLast.items, usersAll.slice((usersPg.totalPages - 1) * 2));
+    eq((await A.adminUsers({ page: 1, limit: 500 })).limit, 100, 'limit เกิน 100 ต้อง clamp เหลือ 100');
+    var moviesAll = await A.adminMovies();
+    var moviesPg = await A.adminMovies({ page: 1, limit: 3 });
+    eq(moviesPg.total, moviesAll.length);
+    eq(moviesPg.totalPages, Math.max(1, Math.ceil(moviesAll.length / 3)));
+    eq(moviesPg.items, moviesAll.slice(0, 3));
+    await A.logout();
+    await login('tester1', 'Passw0rd1');
+    var mineAll = await A.myBookings();
+    ok(Array.isArray(mineAll) && mineAll.length >= 2, 'tester1 ต้องมีประวัติจองจากเคสก่อนหน้า');
+    var minePg = await A.myBookings({ page: 1, limit: 2 });
+    eq(minePg.total, mineAll.length);
+    eq(minePg.totalPages, Math.max(1, Math.ceil(mineAll.length / 2)));
+    eq(minePg.items, mineAll.slice(0, 2));
+    var mineLast = await A.myBookings({ page: 999 });
+    eq(mineLast.page, mineLast.totalPages, 'page 999 ต้อง clamp มาหน้าสุดท้าย');
+    ok(mineLast.items.length > 0, 'หน้าสุดท้ายต้องมีข้อมูล ไม่ใช่ลิสต์เปล่า');
     await A.logout();
   });
 

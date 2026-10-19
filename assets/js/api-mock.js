@@ -69,6 +69,19 @@
     copy.rule = p.rule ? Object.assign({}, p.rule) : null;
     return copy;
   }
+  /* แบ่งหน้า opt-in (parity กับ server): ไม่ส่ง page = คืน array เดิมทั้งหมด
+     ส่ง page = { items, page, limit, total, totalPages } — limit จำกัด 1–100 (default 20)
+     page จำกัดบน 1e6 และหน้าเกินขอบเขตคืนหน้าสุดท้ายแทนลิสต์เปล่า (parity กับ server) */
+  function paginate(items, opts) {
+    opts = opts || {};
+    if (opts.page == null || opts.page === '') { return items; }
+    var reqPage = Math.min(1000000, Math.max(1, parseInt(opts.page, 10) || 1));
+    var limit = Math.max(1, Math.min(100, parseInt(opts.limit, 10) || 20));
+    var totalPages = Math.max(1, Math.ceil(items.length / limit));
+    var page = Math.min(reqPage, totalPages);
+    return { items: items.slice((page - 1) * limit, page * limit), page: page, limit: limit,
+      total: items.length, totalPages: totalPages };
+  }
   var WEEKDAYS_TH = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
   /* สำเนาตรรกะของ server/pricing.js quote() — ต้องแก้ให้ตรงกันทั้งสองที่ */
   function quotePrice(input) {
@@ -111,6 +124,37 @@
     }
     return { code: code, title: title, summary: summary, details: details,
       terms: terms.map(function (t) { return t.trim(); }).filter(Boolean), image: imageRef(data.image) };
+  }
+  /* กติกาส่วนลด (parity กับ server/validate.js promotionRule) — null = ไม่มีกติกา */
+  var RULE_TYPES = ['percent_off', 'bundle_price', 'unit_price'];
+  var TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  function optInt(v) {
+    if (v == null || v === '') { return null; }
+    var n = Number(v);
+    return typeof n === 'number' && isFinite(n) && Math.floor(n) === n ? n : NaN;
+  }
+  function promotionRule(data) {
+    var rule = (data || {}).rule;
+    if (rule == null) { return null; }
+    if (typeof rule !== 'object' || Array.isArray(rule)) { throw ApiError(422, 'รูปแบบกติกาส่วนลดไม่ถูกต้อง'); }
+    var type = String(rule.type || '').trim();
+    if (RULE_TYPES.indexOf(type) === -1) { throw ApiError(422, 'ชนิดกติกาส่วนลดไม่ถูกต้อง'); }
+    var value = optInt(rule.value);
+    if (value == null || isNaN(value)) { throw ApiError(422, 'กรุณาระบุมูลค่าของกติกาส่วนลดเป็นตัวเลข'); }
+    if (type === 'percent_off' && (value < 1 || value > 99)) { throw ApiError(422, 'ส่วนลดต้องเป็นตัวเลข 1–99'); }
+    if (type === 'bundle_price' && (value < 1 || value > 100000)) { throw ApiError(422, 'ราคากลุ่มต้องเป็นตัวเลข 1–100,000 บาท'); }
+    if (type === 'unit_price' && (value < 1 || value > 5000)) { throw ApiError(422, 'ราคาต่อที่นั่งต้องเป็นตัวเลข 1–5,000 บาท'); }
+    var weekday = optInt(rule.weekday);
+    if (weekday != null && (weekday < 0 || weekday > 6)) { throw ApiError(422, 'วันในสัปดาห์ไม่ถูกต้อง'); }
+    var seatCount = optInt(rule.seatCount);
+    if (seatCount != null && (seatCount < 1 || seatCount > 99)) { throw ApiError(422, 'จำนวนที่นั่งต้องเป็นตัวเลข 1–99'); }
+    var timeFrom = rule.timeFrom == null || rule.timeFrom === '' ? null : String(rule.timeFrom).trim();
+    var timeTo = rule.timeTo == null || rule.timeTo === '' ? null : String(rule.timeTo).trim();
+    if ((timeFrom && !TIME_RE.test(timeFrom)) || (timeTo && !TIME_RE.test(timeTo))) {
+      throw ApiError(422, 'เวลาต้องอยู่ในรูปแบบ HH:MM (เช่น 18:00)');
+    }
+    if (timeFrom && timeTo && timeFrom >= timeTo) { throw ApiError(422, 'เวลาเริ่มต้องมาก่อนเวลาสิ้นสุด'); }
+    return { type: type, value: value, weekday: weekday, timeFrom: timeFrom, timeTo: timeTo, seatCount: seatCount };
   }
 
   /* PRNG แบบ deterministic เพื่อให้ที่นั่งจองแล้วของ "ลูกค้าคนอื่น"
@@ -732,12 +776,15 @@
       });
     },
 
-    /* GET /me/bookings — ดึงจากตัวตนใน session เท่านั้น */
-    myBookings: function () {
+    /* GET /me/bookings — ดึงจากตัวตนใน session เท่านั้น
+       ส่ง { page } มา = แบ่งหน้าแบบเดียวกับ server (parity) ไม่ส่ง = array ทั้งหมด */
+    myBookings: function (opts) {
+      opts = opts || {};
       return readyPromise.then(latency).then(function () {
         var u = requireUser();
-        return db.bookings.filter(function (b) { return b.userId === u.id; })
-          .sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt); });
+        var items = db.bookings.filter(function (b) { return b.userId === u.id; })
+          .sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt) || (b.id < a.id ? -1 : b.id > a.id ? 1 : 0); });
+        return paginate(items, opts);
       });
     },
 
@@ -770,6 +817,8 @@
         var ids = Array.isArray(seatIds) ? seatIds.filter(function (id, i, a) { return a.indexOf(id) === i; }) : [];
         if (!ids.length) { throw ApiError(422, 'กรุณาเลือกที่นั่งอย่างน้อย 1 ที่นั่ง'); }
         var m = db.movies.filter(function (x) { return x.id === st.movieId; })[0];
+        /* P-19 (parity กับ server): รอบที่เริ่มฉายไปแล้วไม่ให้คำนวณส่วนลด */
+        if (isPast(st.startsAt)) { throw ApiError(422, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถใช้โค้ดส่วนลดได้ กรุณาเลือกรอบอื่น'); }
         var quote = quotePrice({ unit: m.price, fee: SERVICE_FEE, seatCount: ids.length, date: st.date, time: st.time,
           promoCode: p.code, rule: p.rule });
         return { valid: true, promotion: promotionCopy(p), quote: quote };
@@ -784,9 +833,10 @@
       return readyPromise.then(latency).then(function () {
         requireAdmin();
         var fields = promotionFields(data);
+        var rule = promotionRule(data); // null = ไม่มีกติกา (โค้ดโชว์อย่างเดียว)
         if (db.promotions.some(function (p) { return p.code === fields.code; })) { throw ApiError(409, 'รหัสคูปองนี้มีอยู่แล้ว'); }
         var id = 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-        var item = Object.assign({ id: id }, fields);
+        var item = Object.assign({ id: id, rule: rule }, fields);
         db.promotions.push(item);
         try { saveDB(); } catch (e) { db.promotions.pop(); throw e; }
         return promotionCopy(item);
@@ -797,11 +847,14 @@
         requireAdmin();
         var item = db.promotions.filter(function (p) { return p.id === id; })[0];
         if (!item) { throw ApiError(404, 'ไม่พบคูปองนี้'); }
-        var fields = promotionFields(Object.assign({}, item, data));
+        var merged = Object.assign({}, item, data);
+        var fields = promotionFields(merged);
+        var rule = promotionRule(merged); // merged.rule = กติกาเดิมเมื่อ request ไม่ส่ง rule มา
         if (db.promotions.some(function (p) { return p.id !== id && p.code === fields.code; })) { throw ApiError(409, 'รหัสคูปองนี้มีอยู่แล้ว'); }
         var previous = promotionCopy(item);
         Object.assign(item, fields);
-        try { saveDB(); } catch (e) { Object.assign(item, previous); throw e; }
+        item.rule = rule;
+        try { saveDB(); } catch (e) { Object.assign(item, previous); item.rule = previous.rule; throw e; }
         return promotionCopy(item);
       });
     },
@@ -871,7 +924,8 @@
             return u.username.toLowerCase().indexOf(q) !== -1 || u.email.toLowerCase().indexOf(q) !== -1;
           });
         }
-        return items.sort(function (a, b) { return a.createdAt.localeCompare(b.createdAt); });
+        items.sort(function (a, b) { return a.createdAt.localeCompare(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+        return paginate(items, opts);
       });
     },
 
@@ -926,7 +980,8 @@
             todayStatus: m.nowShowing ? (sts.length ? (sts.some(function (s) { return s.status === 'available'; }) ? 'available' : 'full') : 'noshow') : 'upcoming' };
         });
         if (q) { items = items.filter(function (m) { return m.title.toLowerCase().indexOf(q) !== -1; }); }
-        return items;
+        /* db.movies เรียงตาม id อยู่แล้ว (push เข้าเรียง) — ลำดับเสถียรเช่นเดียวกับ server */
+        return paginate(items, opts);
       });
     },
 

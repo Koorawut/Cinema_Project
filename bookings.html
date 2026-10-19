@@ -27,55 +27,66 @@
       var E = MAISON.el;
       var root = document.getElementById('booking-root');
 
-      MAISON_API.myBookings().then(function (list) {
-        root.innerHTML = '';
-        if (!list.length) {
-          var empty = E('div', 'empty-state card');
-          empty.appendChild(E('div', 'glyph', '○'));
-          empty.appendChild(E('h2', null, 'ยังไม่มีประวัติการจอง'));
-          empty.appendChild(E('p', 'small', 'เริ่มต้นจองภาพยนตร์เรื่องแรกของคุณได้เลย'));
-          var browse = E('a', 'btn btn-primary', 'ดูภาพยนตร์ที่กำลังฉาย');
-          browse.href = 'movies.html';
-          empty.appendChild(browse);
-          root.appendChild(empty);
-          return;
-        }
+      /* page = หมายเลขหน้า (ส่งให้ server แบ่งหน้าให้ — P รายการต่อหน้าที่ server กำหนด) */
+      function load(page) {
+        MAISON_API.myBookings({ page: page }).then(function (out) {
+          var list = out.items || out;
+          var paged = out.items != null; // แบ่งหน้า (มี total/totalPages) หรือโหมดเดิม (array)
+          root.innerHTML = '';
+          if (!list.length && !paged) {
+            var empty = E('div', 'empty-state card');
+            empty.appendChild(E('div', 'glyph', '○'));
+            empty.appendChild(E('h2', null, 'ยังไม่มีประวัติการจอง'));
+            empty.appendChild(E('p', 'small', 'เริ่มต้นจองภาพยนตร์เรื่องแรกของคุณได้เลย'));
+            var browse = E('a', 'btn btn-primary', 'ดูภาพยนตร์ที่กำลังฉาย');
+            browse.href = 'movies.html';
+            empty.appendChild(browse);
+            root.appendChild(empty);
+            return;
+          }
 
-        var wrap = E('div', 'booking-list');
-        list.forEach(function (b) {
-          var card = E('article', 'card booking-card');
-          card.setAttribute('data-od-id', 'booking-' + b.code);
+          var wrap = E('div', 'booking-list');
+          list.forEach(function (b) {
+            var card = E('article', 'card booking-card');
+            card.setAttribute('data-od-id', 'booking-' + b.code);
 
-          var mainPart = E('div', 'bc-main');
-          mainPart.appendChild(E('h3', null, b.movieTitle));
-          var meta = E('div', 'bc-meta');
-          meta.appendChild(E('span', null, MAISON.thDateTime(b.startsAt)));
-          meta.appendChild(E('span', null, b.hall));
-          meta.appendChild(E('span', null, 'รหัส ' + b.code));
-          mainPart.appendChild(meta);
+            var mainPart = E('div', 'bc-main');
+            mainPart.appendChild(E('h3', null, b.movieTitle));
+            var meta = E('div', 'bc-meta');
+            meta.appendChild(E('span', null, MAISON.thDateTime(b.startsAt)));
+            meta.appendChild(E('span', null, b.hall));
+            meta.appendChild(E('span', null, 'รหัส ' + b.code));
+            mainPart.appendChild(meta);
 
-          var seats = E('div', 'bc-seats');
-          b.seats.forEach(function (s) {
-            seats.appendChild(E('span', 'badge', s.row + s.number));
+            var seats = E('div', 'bc-seats');
+            b.seats.forEach(function (s) {
+              seats.appendChild(E('span', 'badge', s.row + s.number));
+            });
+            mainPart.appendChild(seats);
+
+            var side = E('div', 'bc-side');
+            side.appendChild(E('div', 'bc-total', MAISON.baht(b.total)));
+            if (b.discount > 0) { side.appendChild(E('div', 'small muted', 'ลด ' + MAISON.baht(b.discount) + ' (' + b.promoCode + ')')); }
+            var badges = E('div');
+            badges.appendChild(E('span', 'badge badge-success', 'ยืนยันแล้ว'));
+            side.appendChild(badges);
+            var view = E('a', 'btn-link', 'ดูตั๋ว');
+            view.href = 'ticket.html?id=' + encodeURIComponent(b.id);
+            side.appendChild(view);
+
+            card.appendChild(mainPart);
+            card.appendChild(side);
+            wrap.appendChild(card);
           });
-          mainPart.appendChild(seats);
+          root.appendChild(wrap);
+          var pagerEl = E('div', 'gap-t');
+          root.appendChild(pagerEl);
+          /* กันหน้าเกินขอบเขต (server clamp แล้ว แต่กันไว้ซ้ำ): ยังมีหน้าอื่นให้กลับได้เสมอ */
+          if (paged) { MAISON.pager(pagerEl, out, load); }
+        }).catch(MAISON.handleApiError);
+      }
 
-          var side = E('div', 'bc-side');
-          side.appendChild(E('div', 'bc-total', MAISON.baht(b.total)));
-          if (b.discount > 0) { side.appendChild(E('div', 'small muted', 'ลด ' + MAISON.baht(b.discount) + ' (' + b.promoCode + ')')); }
-          var badges = E('div');
-          badges.appendChild(E('span', 'badge badge-success', 'ยืนยันแล้ว'));
-          side.appendChild(badges);
-          var view = E('a', 'btn-link', 'ดูตั๋ว');
-          view.href = 'ticket.html?id=' + encodeURIComponent(b.id);
-          side.appendChild(view);
-
-          card.appendChild(mainPart);
-          card.appendChild(side);
-          wrap.appendChild(card);
-        });
-        root.appendChild(wrap);
-      }).catch(MAISON.handleApiError);
+      load(1);
     });
   </script>
 </body>

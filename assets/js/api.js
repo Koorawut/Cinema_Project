@@ -179,7 +179,11 @@
     createBooking: function (data) {
       return send('POST', '/bookings', { showtimeId: data.showtimeId, seatIds: data.seatIds, promoCode: data.promoCode || undefined });
     },
-    myBookings: function () { return get('/me/bookings'); },
+    /* GET /api/me/bookings — ไม่ส่ง opts = รูปแบบเดิม (array); ส่ง page = { items, page, limit, total, totalPages } */
+    myBookings: function (opts) {
+      opts = opts || {};
+      return get('/me/bookings' + qs({ page: opts.page, limit: opts.limit }));
+    },
 
     promotions: function () { return get('/promotions'); },
     promotion: function (id) { return get('/promotions/' + seg(id)); },
@@ -195,11 +199,17 @@
 
     adminStats: function (opts) { return get('/admin/stats' + qs({ days: (opts || {}).days || 0 })); },
 
-    adminUsers: function (opts) { return get('/admin/users' + qs({ search: (opts || {}).search })); },
+    adminUsers: function (opts) {
+      opts = opts || {};
+      return get('/admin/users' + qs({ search: opts.search, page: opts.page, limit: opts.limit }));
+    },
     adminSetRole: function (userId, role) { return send('PATCH', '/admin/users/' + seg(userId) + '/role', { role: role }); },
     adminDeleteUser: function (userId) { return send('DELETE', '/admin/users/' + seg(userId), {}); },
 
-    adminMovies: function (opts) { return get('/admin/movies' + qs({ search: (opts || {}).search })); },
+    adminMovies: function (opts) {
+      opts = opts || {};
+      return get('/admin/movies' + qs({ search: opts.search, page: opts.page, limit: opts.limit }));
+    },
     adminCreateMovie: function (data) { return send('POST', '/admin/movies', data); },
     adminUpdateMovie: function (id, data) { return send('PATCH', '/admin/movies/' + seg(id), data); },
     adminDeleteMovie: function (id) { return send('DELETE', '/admin/movies/' + seg(id), {}); },

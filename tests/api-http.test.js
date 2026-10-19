@@ -594,14 +594,257 @@ test('P-16: แก้ตารางที่ทำให้การจอง�
   assert.ok((await demo.get('/api/me/bookings')).data.some((b) => b.showtimeId === stId));
 
   // หนังที่มีแต่การจองอดีต → แก้ตารางได้ (setNow ไปอนาคตทำให้การจองกลายเป็นอดีต)
+  // ลบหนังทำในหน้าต่าง setNow เดียวกัน — การจอง D7 เป็นอดีตแล้วจึงไม่ชน guard P-18
+  // (การลบหนังที่มีการจองอนาคต มีเคส P-18 ตรวจแยก) — BASE_URL ภายนอกคุมเวลาไม่ได้ จึงข้ามส่วนนี้
+  if (!BASE) {
+    try {
+      maisonTime.setNow(D(8) + 'T23:00:00+07:00');
+      const afterEnd = await admin.patch('/api/admin/movies/' + mid, { dateEnd: D(6), periods: ['afternoon'] });
+      assert.equal(afterEnd.status, 200, 'การจองอดีตต้องไม่กันแก้ตาราง: ' + JSON.stringify(afterEnd.data));
+      const removed = await admin.del('/api/admin/movies/' + mid);
+      assert.equal(removed.status, 200, 'ลบหนังที่เหลือแต่การจองอดีตต้องสำเร็จ: ' + JSON.stringify(removed.data));
+    } finally {
+      maisonTime.setNow(null);
+    }
+  }
+});
+
+/* ---------- S6b2: P-18 ลบหนังที่มีการจองรอบอนาคต ---------- */
+
+test('P-18: ลบหนังที่มีการจองรอบอนาคต = 409, ไม่มีการจอง = ลบได้, การจองเป็นอดีตแล้ว = ลบได้', async () => {
+  const admin = client();
+  await admin.login('admin', 'admin123');
+  const today = (await admin.get('/api/config')).data.today;
+  const D = (n) => {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // หนังไม่มีการจองเลย → ลบได้ทันที (hall-02 รอบเช้า +6..+8 ไม่ชน m04 ที่จบที่ +5)
+  const free = await admin.post('/api/admin/movies', { title: 'P18 Free Reel ' + uniq, genres: ['Drama'], price: 200,
+    durationMin: 100, ageRating: 'ท.', director: 'QA', synopsis: 'x', nowShowing: true,
+    hallId: 'hall-02', dateStart: D(6), dateEnd: D(8), periods: ['morning'] });
+  assert.equal(free.status, 201, 'สร้างหนังไม่มีการจองไม่ได้: ' + JSON.stringify(free.data));
+  const freeDel = await admin.del('/api/admin/movies/' + free.data.id);
+  assert.equal(freeDel.status, 200, 'หนังไม่มีการจองต้องลบได้: ' + JSON.stringify(freeDel.data));
+
+  // หนังมีการจองอนาคต 1 รอบ (hall-02 รอบกลางวัน +6..+8 — ไม่ชน m03/m06 ที่จบที่ +2/+5)
+  const created = await admin.post('/api/admin/movies', { title: 'P18 Guard Reel ' + uniq, genres: ['Drama'], price: 220,
+    durationMin: 100, ageRating: 'ท.', director: 'QA', synopsis: 'x', nowShowing: true,
+    hallId: 'hall-02', dateStart: D(6), dateEnd: D(8), periods: ['afternoon'] });
+  assert.equal(created.status, 201, 'สร้างหนังทดสอบ P-18 ไม่ได้: ' + JSON.stringify(created.data));
+  const mid = created.data.id;
+  const demo = client();
+  await demo.login('demo', 'demo123');
+  const stId = 'st-' + mid + '-' + D(7) + '-afternoon';
+  const booked = await demo.post('/api/bookings', { showtimeId: stId, seatIds: ['hall-02-A1'] });
+  assert.equal(booked.status, 201, 'จองรอบอนาคตไม่ได้: ' + JSON.stringify(booked.data));
+
+  // ลบตอนการจองยังเป็นอนาคต → 409 พร้อมจำนวนรอบ + ชื่อรอบ + ข้อความแนะนำ
+  const blocked = await admin.del('/api/admin/movies/' + mid);
+  assert.equal(blocked.status, 409, 'ลบหนังที่มีการจองอนาคตต้อง 409');
+  assert.ok(blocked.data.error.message.indexOf('ลบไม่ได้: มีการจองอยู่ใน 1 รอบที่ยังไม่ถึงเวลาฉาย') === 0,
+    'ข้อความต้องขึ้นต้นด้วยจำนวนรอบ — ได้: ' + blocked.data.error.message);
+  assert.ok(blocked.data.error.message.indexOf(D(7) + ' รอบกลางวัน') !== -1,
+    'ต้องระบุรอบที่มีการจอง — ได้: ' + blocked.data.error.message);
+  assert.match(blocked.data.error.message, /กรุณารอจนรอบที่มีการจองฉายไปแล้วจึงจะลบได้/);
+  assert.match(blocked.data.error.message, /ระบบยังไม่รองรับการยกเลิกการจอง/);
+  // หนังยังอยู่ การจองยังอยู่
+  assert.equal((await admin.get('/api/movies/' + mid)).status, 200, 'หนังต้องยังไม่ถูกลบ');
+  assert.ok((await demo.get('/api/me/bookings')).data.some((b) => b.showtimeId === stId), 'การจองต้องยังอยู่');
+
+  // setNow พ้นรอบที่จอง → การจองเป็นอดีต ลบได้ (ต้องคุมเวลาใน process เดียวกับ server)
+  if (!BASE) {
+    try {
+      maisonTime.setNow(D(8) + 'T23:00:00+07:00');
+      const removed = await admin.del('/api/admin/movies/' + mid);
+      assert.equal(removed.status, 200, 'การจองเป็นอดีตแล้วต้องลบได้: ' + JSON.stringify(removed.data));
+    } finally {
+      maisonTime.setNow(null);
+    }
+  }
+});
+
+/* ---------- S6b3: P-19 redeem รอบที่เริ่มฉายไปแล้ว ---------- */
+
+test('P-19: redeem รอบที่เริ่มฉายไปแล้ว = 422 ข้อความตรง, รอบอนาคตยัง quote ได้, ตรวจรหัสอย่างเดียวไม่โดนกัน', async () => {
+  if (BASE) { return; } // ต้องคุมเวลาใน process เดียวกับ server
+  // โค้ดทดสอบไม่มีเงื่อนไขวัน/เวลา/จำนวนที่นั่ง เพื่อแยดเช็คเวลาอย่างเดียว
+  const admin = client();
+  await admin.login('admin', 'admin123');
+  const code = 'P19' + uniq.toUpperCase().slice(-4);
+  const created = await admin.post('/api/admin/promotions', {
+    code, title: 'P-19 ทดสอบเวลา', summary: 's', details: 'd', terms: [],
+    rule: { type: 'percent_off', value: 10 } });
+  assert.equal(created.status, 201, 'สร้างโค้ดทดสอบไม่ได้: ' + JSON.stringify(created.data));
+
+  const c = client();
+  await c.login('demo', 'demo123');
+  const today = (await c.get('/api/config')).data.today;
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const stToday = await showtimeOf(c, 'm04', today); // รอบเช้า 10:30 ของวันนี้
+  assert.ok(stToday, 'ต้องมีรอบเช้า m04 วันนี้');
+  const stTmr = await showtimeOf(c, 'm04', tmr.toISOString().slice(0, 10));
+  assert.ok(stTmr, 'ต้องมีรอบเช้า m04 พรุ่งนี้');
+  const seatsToday = await freeSeats(c, stToday, 1);
+  const seatsTmr = await freeSeats(c, stTmr, 1);
+  const unit = (await c.get('/api/movies/m04')).data.price;
+
   try {
-    maisonTime.setNow(D(8) + 'T23:00:00+07:00');
-    const afterEnd = await admin.patch('/api/admin/movies/' + mid, { dateEnd: D(6), periods: ['afternoon'] });
-    assert.equal(afterEnd.status, 200, 'การจองอดีตต้องไม่กันแก้ตาราง: ' + JSON.stringify(afterEnd.data));
+    maisonTime.setNow(today + 'T23:00:00+07:00'); // 23:00 — รอบเช้าวันนี้เริ่มฉายไปแล้วแน่นอน
+    const past = await c.post('/api/promotions/redeem', { code, showtimeId: stToday.id, seatIds: seatsToday });
+    assert.equal(past.status, 422, 'redeem รอบที่เริ่มฉายไปแล้วต้อง 422');
+    assert.equal(past.data.error.message, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถใช้โค้ดส่วนลดได้ กรุณาเลือกรอบอื่น');
+    // รอบอนาคตยัง quote ได้ตามปกติ (percent_off 10% ไม่มีเงื่อนไขอื่น)
+    const future = await c.post('/api/promotions/redeem', { code, showtimeId: stTmr.id, seatIds: seatsTmr });
+    assert.equal(future.status, 200, 'รอบอนาคตต้องยังคำนวณ quote ได้: ' + JSON.stringify(future.data));
+    assert.equal(future.data.quote.ticketSubtotal, unit);
+    assert.equal(future.data.quote.discount, unit - Math.round(unit * 0.9));
+    assert.equal(future.data.quote.total, Math.round(unit * 0.9) + 30);
+    // ไม่ส่งรอบ (ตรวจรหัสอย่างเดียว) ไม่โดน guard เวลา
+    const codeOnly = await c.post('/api/promotions/redeem', { code });
+    assert.equal(codeOnly.status, 200);
+    assert.equal(codeOnly.data.valid, true);
   } finally {
     maisonTime.setNow(null);
   }
-  assert.equal((await admin.del('/api/admin/movies/' + mid)).status, 200);
+  await admin.del('/api/admin/promotions/' + created.data.id);
+});
+
+/* ---------- S6b4: กติกาคูปอง (rule) CRUD + คำนวณส่วนลด ---------- */
+
+test('กติกาคูปอง: สร้าง percent_off คำนวณตอน redeem, แก้เปลี่ยนชนิด, rule:null ล้าง, ค่าไม่ valid = 422', async () => {
+  const admin = client();
+  await admin.login('admin', 'admin123');
+  const code = 'RULE' + uniq.toUpperCase().slice(-4);
+  const body = { code, title: 'กติกาทดสอบ', summary: 'สรุป', details: 'รายละเอียด', terms: ['ข้อ 1'] };
+
+  // สร้างด้วย rule percent_off 10% — ต้องคืนกติกาที่บันทึกจริง
+  const created = await admin.post('/api/admin/promotions', Object.assign({}, body, { rule: { type: 'percent_off', value: 10 } }));
+  assert.equal(created.status, 201, 'สร้างคูปองพร้อมกติกาไม่ได้: ' + JSON.stringify(created.data));
+  assert.equal(created.data.rule.type, 'percent_off');
+  assert.equal(created.data.rule.value, 10);
+  assert.equal(created.data.rule.weekday, null);
+
+  // PATCH ไม่ส่ง rule = ใช้กติกาเดิม
+  const keep = await admin.patch('/api/admin/promotions/' + created.data.id, { title: 'ยังมีกติกาเดิม' });
+  assert.equal(keep.status, 200);
+  assert.equal(keep.data.rule.type, 'percent_off', 'ไม่ส่ง rule ตอนแก้ต้องใช้กติกาเดิม');
+  assert.equal(keep.data.rule.value, 10);
+
+  // redeem คำนวณส่วนลดตาม rule (รอบอนาคต 2 ที่นั่ง)
+  const c = client();
+  await c.login('demo', 'demo123');
+  const today = (await c.get('/api/config')).data.today;
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const st = await showtimeOf(c, 'm04', tmr.toISOString().slice(0, 10));
+  assert.ok(st);
+  const seats = await freeSeats(c, st, 2);
+  const unit = (await c.get('/api/movies/m04')).data.price;
+  const q1 = await c.post('/api/promotions/redeem', { code, showtimeId: st.id, seatIds: seats });
+  assert.equal(q1.status, 200, 'redeem ด้วยกติกา percent_off ไม่ได้: ' + JSON.stringify(q1.data));
+  assert.equal(q1.data.quote.ticketSubtotal, unit * 2);
+  assert.equal(q1.data.quote.discount, unit * 2 - Math.round(unit * 2 * 0.9));
+  assert.equal(q1.data.quote.total, Math.round(unit * 2 * 0.9) + 60);
+
+  // แก้ rule เปลี่ยนชนิดเป็น unit_price — คำนวณตามกติกาใหม่
+  const switched = await admin.patch('/api/admin/promotions/' + created.data.id, { rule: { type: 'unit_price', value: 150 } });
+  assert.equal(switched.status, 200);
+  assert.equal(switched.data.rule.type, 'unit_price');
+  assert.equal(switched.data.rule.value, 150);
+  const q2 = await c.post('/api/promotions/redeem', { code, showtimeId: st.id, seatIds: seats });
+  assert.equal(q2.status, 200);
+  assert.equal(q2.data.quote.total, 150 * 2 + 60, 'ต้องคิด 150/ที่นั่ง + ค่าบริการ 60');
+
+  // rule:null ล้างกติกา → redeem แบบ quote = 422 โค้ดยังไม่เปิดให้คำนวณ
+  const cleared = await admin.patch('/api/admin/promotions/' + created.data.id, { rule: null });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.data.rule, null, 'rule:null ต้องล้างกติกา');
+  const q3 = await c.post('/api/promotions/redeem', { code, showtimeId: st.id, seatIds: seats });
+  assert.equal(q3.status, 422);
+  assert.equal(q3.data.error.message, 'โค้ดนี้ยังไม่เปิดให้คำนวณส่วนลด');
+
+  // ค่ากติกาไม่ valid → 422 ข้อความตรงตาม validate
+  const badRange = await admin.post('/api/admin/promotions',
+    Object.assign({}, body, { code: code + 'A', rule: { type: 'percent_off', value: 0 } }));
+  assert.equal(badRange.status, 422);
+  assert.equal(badRange.data.error.message, 'ส่วนลดต้องเป็นตัวเลข 1–99');
+  const badType = await admin.post('/api/admin/promotions',
+    Object.assign({}, body, { code: code + 'B', rule: { type: 'magic', value: 10 } }));
+  assert.equal(badType.status, 422);
+  assert.equal(badType.data.error.message, 'ชนิดกติกาส่วนลดไม่ถูกต้อง');
+  const badTime = await admin.patch('/api/admin/promotions/' + created.data.id,
+    { rule: { type: 'percent_off', value: 10, timeFrom: '18:00', timeTo: '10:00' } });
+  assert.equal(badTime.status, 422);
+  assert.equal(badTime.data.error.message, 'เวลาเริ่มต้องมาก่อนเวลาสิ้นสุด');
+
+  await admin.del('/api/admin/promotions/' + created.data.id);
+});
+
+/* ---------- S6b5: pagination opt-in (A4 LOW-1) ---------- */
+
+test('pagination: ไม่ส่ง page = array เดิม, ส่ง page = {items,page,limit,total,totalPages}, clamp หน้า/limit, เลขหลักยาว = 200', async () => {
+  const admin = client();
+  await admin.login('admin', 'admin123');
+
+  // /api/admin/users — ไม่ส่ง page = array เดิมทั้งหมด
+  const usersAll = await admin.get('/api/admin/users');
+  assert.equal(usersAll.status, 200);
+  assert.ok(Array.isArray(usersAll.data), 'ไม่ส่ง page ต้องคืน array รูปแบบเดิม');
+  // ส่ง page = metadata ครบ + ข้อมูลตรงกับ slice ของรูปแบบเดิม (ลำดับเดียวกัน)
+  const usersPg = await admin.get('/api/admin/users?page=1&limit=2');
+  assert.equal(usersPg.status, 200);
+  assert.ok(!Array.isArray(usersPg.data), 'ส่ง page ต้องคืน object');
+  assert.deepEqual(Object.keys(usersPg.data).sort(), ['items', 'limit', 'page', 'total', 'totalPages']);
+  assert.equal(usersPg.data.page, 1);
+  assert.equal(usersPg.data.limit, 2);
+  assert.equal(usersPg.data.total, usersAll.data.length);
+  assert.equal(usersPg.data.totalPages, Math.max(1, Math.ceil(usersAll.data.length / 2)));
+  assert.deepEqual(usersPg.data.items, usersAll.data.slice(0, 2));
+  // หน้าเกินขอบเขต → คืนหน้าสุดท้าย (metadata ตรงหน้าที่คืนจริง) ไม่ใช่ลิสต์เปล่า
+  const usersLast = await admin.get('/api/admin/users?page=99&limit=2');
+  assert.equal(usersLast.status, 200);
+  assert.equal(usersLast.data.page, usersPg.data.totalPages);
+  assert.deepEqual(usersLast.data.items, usersAll.data.slice((usersPg.data.totalPages - 1) * 2));
+  // limit เกิน 100 → clamp เหลือ 100
+  assert.equal((await admin.get('/api/admin/users?page=1&limit=500')).data.limit, 100);
+  // page เลขหลักยาวเกิน bigint ของ Postgres → 200 ไม่ใช่ 500 (A4 LOW-1)
+  const usersHuge = await admin.get('/api/admin/users?page=9999999999999999999');
+  assert.equal(usersHuge.status, 200, 'page ค่าหลักยาวต้องไม่ทำให้ 500');
+  assert.equal(usersHuge.data.page, usersHuge.data.totalPages);
+
+  // /api/admin/movies — ครอบทุกกรณีเหมือนกัน
+  const moviesAll = await admin.get('/api/admin/movies');
+  assert.ok(Array.isArray(moviesAll.data));
+  const moviesPg = await admin.get('/api/admin/movies?page=1&limit=3');
+  assert.equal(moviesPg.status, 200);
+  assert.equal(moviesPg.data.total, moviesAll.data.length);
+  assert.equal(moviesPg.data.totalPages, Math.max(1, Math.ceil(moviesAll.data.length / 3)));
+  assert.deepEqual(moviesPg.data.items, moviesAll.data.slice(0, 3));
+  const moviesLast = await admin.get('/api/admin/movies?page=99&limit=3');
+  assert.equal(moviesLast.data.page, moviesPg.data.totalPages);
+  assert.deepEqual(moviesLast.data.items, moviesAll.data.slice((moviesPg.data.totalPages - 1) * 3));
+  assert.equal((await admin.get('/api/admin/movies?page=9999999999999999999')).status, 200);
+
+  // /api/me/bookings — demo มีการจองจากเคสก่อนหน้าแล้ว
+  const c = client();
+  await c.login('demo', 'demo123');
+  const mineAll = await c.get('/api/me/bookings');
+  assert.equal(mineAll.status, 200);
+  assert.ok(Array.isArray(mineAll.data));
+  const minePg = await c.get('/api/me/bookings?page=1&limit=2');
+  assert.equal(minePg.status, 200);
+  assert.equal(minePg.data.total, mineAll.data.length);
+  assert.equal(minePg.data.totalPages, Math.max(1, Math.ceil(mineAll.data.length / 2)));
+  assert.deepEqual(minePg.data.items, mineAll.data.slice(0, 2));
+  const mineLast = await c.get('/api/me/bookings?page=99&limit=2');
+  assert.equal(mineLast.data.page, minePg.data.totalPages);
+  assert.deepEqual(mineLast.data.items, mineAll.data.slice((minePg.data.totalPages - 1) * 2));
+  assert.equal((await c.get('/api/me/bookings?page=9999999999999999999')).status, 200);
+  assert.equal((await c.get('/api/me/bookings?page=1&limit=500')).data.limit, 100);
 });
 
 /* ---------- S6c: P-17 rate limit redeem ต่อ IP ---------- */

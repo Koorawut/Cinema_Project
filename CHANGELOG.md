@@ -2,6 +2,27 @@
 
 รูปแบบอ้างอิง [Keep a Changelog](https://keepachangelog.com/th-TH/1.1.0/) เวอร์ชันตาม [Semantic Versioning](https://semver.org/lang/th/)
 
+## [2.3.0] — 19 ตุลาคม 2026
+
+รอบ Wave 2: กันลบหนังที่มีการจองรอบอนาคต (P-18), กันใช้โค้ดส่วนลดกับรอบที่เริ่มฉายไปแล้ว (P-19), ฟอร์มกำหนดกติกาคูปองฝั่ง admin และแบ่งหน้า (pagination) — สรุปผล: T1 52/52, unit 19/19, T5 HTTP 34/34, client parity 3/3, รวม 108/108 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 9)
+
+### เพิ่ม (Added)
+- ฟอร์ม "กติกาส่วนลด" ใน `admin-promotions.html` — 3 ชนิดตรงตามคูปอง seed (`percent_off` ลดตาม %, `bundle_price` ราคารวม, `unit_price` ราคาต่อที่นั่ง) พร้อมเงื่อนไขวันในสัปดาห์/ช่วงเวลา; แสดง/ซ่อนฟิลด์ตามชนิดที่เลือก, กรอกข้อมูลเดิมตอนแก้ไข และคอลัมน์สรุปกติกาในตาราง — **admin กำหนดกติกาคูปองที่สร้างเองได้แล้ว** (ปลดข้อจำกัดเดิม "โค้ดจาก admin ยังไม่มีกติกา ใช้คำนวณไม่ได้ 422")
+- `server/validate.js` — ตรวจ `promotionRule`: percent 1–99, bundle 1–100000, unit 1–5000, weekday 0–6, เวลา `HH:MM` และ `timeFrom < timeTo`; `promotions.js` adminCreate/adminUpdate บันทึกคอลัมน์ `rule_*` ด้วย SQL parameter — ความหมายตอนแก้ไข: ไม่ส่ง `rule` = คงกติกาเดิม, `rule: null` = ล้างกติกา; `api-mock.js` ทำเหมือนกันเพื่อ parity
+- Pagination (Rubric 8 bonus) ที่ `admin/users`, `admin/movies`, `me/bookings` — ไม่ส่ง `page` = คืน array เดิมทุกประการ (backward compatible); ส่ง `page` = `{items, page, limit, total, totalPages}`; limit clamp 1–100 (default 20), หน้าเกินช่วง snap ไปหน้าสุดท้าย
+- `MAISON.pager` — UI ตัวแบ่งหน้าใช้ร่วมกันใน `app.js` เชื่อมที่ `admin-accounts.html`, `admin-movies.html` (ค้นหาแล้วกลับหน้า 1) และ `bookings.html` (pager แสดงแม้รายการหน้านั้นว่าง)
+- เคสทดสอบใหม่: P-18 (T5), P-19 (T5 + T1 parity), กติกาคูปอง CRUD + ข้อความ invalid (T5 + T1 parity), pagination 3 endpoint (T5 + T1 parity + client parity), smoke ฟอร์มกติกาผ่าน UI จริง
+
+### เปลี่ยนแปลง (Changed)
+- **P-18** — `server/routes/admin.js` `deleteMovie` ปฏิเสธการลบหนังที่มี booking รอบอนาคต → 409 "ลบไม่ได้: มีการจองอยู่ใน N รอบที่ยังไม่ถึงเวลาฉาย (…) กรุณารอจนรอบที่มีการจองฉายไปแล้วจึงจะลบได้ (ระบบยังไม่รองรับการยกเลิกการจอง)"; หนังที่การจองเป็นอดีตแล้วยังลบได้ตามเดิม; helper ของ P-16 แยกเป็น `futureBookedRounds`/`roundLabel`/`roundListText` (พฤติกรรม P-16 เดิมไม่เปลี่ยน ยืนยันด้วยชุดทดสอบเดิม)
+- **P-19** — `server/routes/promotions.js` redeem แบบส่ง `showtimeId` ตรวจรอบที่เริ่มฉายไปแล้ว → 422 "รอบนี้เริ่มฉายไปแล้ว ไม่สามารถใช้โค้ดส่วนลดได้ กรุณาเลือกรอบอื่น" (server + mock parity) — ข้อความต่างจากรอบการจอง (P-15) โดยตั้งใจ เพื่อให้ตรงบริบทการใช้โค้ด
+- `admin-promotions.html` ส่งเฉพาะฟิลด์ของชนิดกติกาที่เลือก และล้างค่าฟิลด์ที่ซ่อนอยู่เมื่อสลับชนิด (จากผล review — เดิมค่าฟิลด์ที่ซ่อนถูกส่งไปบันทึกด้วย)
+- เลขเวอร์ชันเป็น "เวอร์ชัน 2.3 (v2.3)" (`VERSION` 2.3.0 ใน app.js, eyebrow หน้าแรก, footer, package.json)
+
+### แก้ไข (Fixed)
+- pagination: `page` เลขหลักยาว (เช่น 9999999999999999999) เคยทำให้ Postgres overflow เป็น 500 — ตอนนี้กันด้วย cap 1e6 แล้วตอบ 200
+- `tests/api-http.test.js` (เคส P-16): ย้ายคำสั่งลบหนังทดสอบเข้าไปอยู่ในหน้าต่าง `setNow` อนาคตเดียวกับที่สร้าง booking เพื่อไม่ให้การจองอนาคตของเคสนั้นกลายเป็นอดีตก่อนถูกลบ (เคสจะ time-bomb เมื่อรันตอนเย็น)
+
 ## [2.2.0] — 19 ตุลาคม 2026
 
 รอบแก้ปัญหาจากการอ่านโค้ดหลัง deploy (P-12, P-15, P-16, P-17, P-14 บางส่วน) + cron เลื่อนตารางฉายอัตโนมัติ — สรุปผล: T1 49/49, unit 19/19, T5 HTTP 30/30, client parity 3/3, รวม 101/101 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 7)

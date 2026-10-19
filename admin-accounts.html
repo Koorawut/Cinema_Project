@@ -47,6 +47,7 @@
           <tbody id="user-tbody"></tbody>
         </table>
       </div>
+      <div class="gap-t" id="user-pager"></div>
       <p class="small muted gap-t" id="user-count"></p>
     </div>
   </div>
@@ -58,6 +59,7 @@
       var me = ctx.user;
       var searchEl = document.getElementById('user-search');
       var debounceTimer = null;
+      var page = 1;
 
       function load() {
         var tbody = document.getElementById('user-tbody');
@@ -65,9 +67,11 @@
         tbody.appendChild(E('tr', null, '')).innerHTML =
           '<td colspan="5"><div class="spinner" role="status" aria-label="กำลังโหลด"></div></td>';
 
-        MAISON_API.adminUsers({ search: searchEl.value.trim() }).then(function (users) {
+        MAISON_API.adminUsers({ search: searchEl.value.trim(), page: page }).then(function (out) {
+          var users = out.items || out;
           tbody.innerHTML = '';
-          document.getElementById('user-count').textContent = 'ทั้งหมด ' + users.length + ' บัญชี';
+          document.getElementById('user-count').textContent = 'ทั้งหมด ' + (out.total != null ? out.total : users.length) + ' บัญชี';
+          MAISON.pager(document.getElementById('user-pager'), out, function (p) { page = p; load(); });
 
           users.forEach(function (u) {
             var tr = E('tr');
@@ -129,7 +133,7 @@
 
       searchEl.addEventListener('input', function () {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(load, 280);
+        debounceTimer = setTimeout(function () { page = 1; load(); }, 280);
       });
 
       load();

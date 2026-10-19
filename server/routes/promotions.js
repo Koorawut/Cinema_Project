@@ -13,6 +13,7 @@ const S = require('../schedule');
 const M = require('../movies');
 const pricing = require('../pricing');
 const { ApiError } = require('../http');
+const { isPast } = require('../time');
 
 const COLS = 'id, code, title, summary, details, terms, image, rule_type, rule_value, weekday, time_from, time_to, seat_count';
 
@@ -87,6 +88,8 @@ async function redeem(ctx) {
   const seatIds = Array.isArray(ctx.body.seatIds) ? Array.from(new Set(ctx.body.seatIds.map(String))) : [];
   if (!seatIds.length) { throw new ApiError(422, 'กรุณาเลือกที่นั่งอย่างน้อย 1 ที่นั่ง'); }
   const { movie, showtime: st } = found;
+  // P-19: รอบที่เริ่มฉายไปแล้วไม่ให้คำนวณส่วนลด (แนวเดียวกับ P-15 ที่กันจองรอบอดีต)
+  if (isPast(st.startsAt)) { throw new ApiError(422, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถใช้โค้ดส่วนลดได้ กรุณาเลือกรอบอื่น'); }
   const quote = pricing.quote({ unit: movie.price, fee: S.SERVICE_FEE, seatCount: seatIds.length,
     date: st.date, time: st.time, promoCode: promotion.code, rule: promotion.rule });
   return { valid: true, promotion, quote };
@@ -98,17 +101,25 @@ async function adminList(ctx) {
   return all();
 }
 
+/* แถว SQL ของกติกา — เก็บ null ทั้งชุดเมื่อไม่มีกติกา (โค้ดโชว์อย่างเดียว) */
+function ruleParams(rule) {
+  return rule ? [rule.type, rule.value, rule.weekday, rule.timeFrom, rule.timeTo, rule.seatCount]
+    : [null, null, null, null, null, null];
+}
+
 /* POST /api/admin/promotions */
 async function adminCreate(ctx) {
   await auth.requireAdmin(ctx.req);
   const f = V.promotionFields(ctx.body);
+  const rule = V.promotionRule(ctx.body); // null = ไม่มีกติกา (โค้ดโชว์อย่างเดียว)
   if (await db.one('SELECT 1 FROM promotions WHERE code = $1', [f.code])) { throw new ApiError(409, 'รหัสคูปองนี้มีอยู่แล้ว'); }
   const image = await images.resolveImage(ctx.body.image, '', 'promotions');
   const id = 'p-' + crypto.randomBytes(6).toString('hex');
   try {
     const r = await db.one(
-      'INSERT INTO promotions (id, code, title, summary, details, terms, image) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ' + COLS,
-      [id, f.code, f.title, f.summary, f.details, f.terms, image]);
+      'INSERT INTO promotions (id, code, title, summary, details, terms, image, rule_type, rule_value, weekday, time_from, time_to, seat_count) ' +
+      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING ' + COLS,
+      [id, f.code, f.title, f.summary, f.details, f.terms, image].concat(ruleParams(rule)));
     ctx.status = 201;
     return rowToPromotion(r);
   } catch (e) {
@@ -118,13 +129,14 @@ async function adminCreate(ctx) {
   }
 }
 
-/* PATCH /api/admin/promotions/:id — ฟิลด์ที่ไม่ส่งมาใช้ค่าเดิม */
+/* PATCH /api/admin/promotions/:id — ฟิลด์ที่ไม่ส่งมาใช้ค่าเดิม (รวมกติกา: ไม่ส่ง rule = ใช้กติกาเดิม) */
 async function adminUpdate(ctx) {
   await auth.requireAdmin(ctx.req);
   const current = await byId(ctx.params.id);
   if (!current) { throw new ApiError(404, 'ไม่พบคูปองนี้'); }
   const merged = Object.assign({}, current, ctx.body);
   const f = V.promotionFields(merged);
+  const rule = V.promotionRule(merged); // merged.rule = กติกาเดิมเมื่อ request ไม่ส่ง rule มา
   if (await db.one('SELECT 1 FROM promotions WHERE code = $1 AND id <> $2', [f.code, current.id])) {
     throw new ApiError(409, 'รหัสคูปองนี้มีอยู่แล้ว');
   }
@@ -132,8 +144,9 @@ async function adminUpdate(ctx) {
   let r;
   try {
     r = await db.one(
-      'UPDATE promotions SET code = $2, title = $3, summary = $4, details = $5, terms = $6, image = $7 WHERE id = $1 RETURNING ' + COLS,
-      [current.id, f.code, f.title, f.summary, f.details, f.terms, image]);
+      'UPDATE promotions SET code = $2, title = $3, summary = $4, details = $5, terms = $6, image = $7, ' +
+      'rule_type = $8, rule_value = $9, weekday = $10, time_from = $11, time_to = $12, seat_count = $13 WHERE id = $1 RETURNING ' + COLS,
+      [current.id, f.code, f.title, f.summary, f.details, f.terms, image].concat(ruleParams(rule)));
   } catch (e) {
     if (image !== current.image) { await images.discardImage(image); }
     if (db.isUniqueViolation(e)) { throw new ApiError(409, 'รหัสคูปองนี้มีอยู่แล้ว'); }

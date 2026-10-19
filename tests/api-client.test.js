@@ -164,6 +164,11 @@ test('ผลลัพธ์ของทุกเมธอดมีฟิลด�
   await both('adminStats.daily', (x) => x.adminStats({ days: 0 }).then((r) => r.daily));
   await both('adminUsers', (x) => x.adminUsers({ search: '' }));
   await both('adminMovies', (x) => x.adminMovies({}));
+  // pagination parity (A4 LOW-1): ส่ง page มา — ทั้ง mock และ server ต้องคืน object
+  // ที่มีฟิลด์ items/page/limit/total/totalPages ครบเหมือนกัน
+  await both('myBookings.page', (x) => x.myBookings({ page: 1, limit: 2 }));
+  await both('adminUsers.page', (x) => x.adminUsers({ page: 1, limit: 2 }));
+  await both('adminMovies.page', (x) => x.adminMovies({ page: 1, limit: 2 }));
 
   const pick = (sts) => sts.items.find((s) => s.status === 'available');
   const seatIdOf = (x, st) => x.seats(st.id).then((r) => r.seats.filter((s) => s.status === 'available').slice(-1).map((s) => s.id));

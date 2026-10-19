@@ -33,7 +33,7 @@
       </div>
       <div class="table-wrap" data-od-id="promotion-table">
         <table class="data">
-          <thead><tr><th>รูปภาพ</th><th>รหัส</th><th>ชื่อและรายละเอียด</th><th>การกระทำ</th></tr></thead>
+          <thead><tr><th>รูปภาพ</th><th>รหัส</th><th>ชื่อและรายละเอียด</th><th>กติกาส่วนลด</th><th>การกระทำ</th></tr></thead>
           <tbody id="promotion-rows"></tbody>
         </table>
       </div>
@@ -51,7 +51,7 @@
           document.getElementById('promotion-count').textContent = 'คูปองที่มีอยู่ ' + items.length + ' รายการ';
           if (!items.length) {
             var empty = E('tr'); var cell = E('td', null, 'ยังไม่มีคูปอง กดเพิ่มคูปองเพื่อเริ่มต้น');
-            cell.colSpan = 4; empty.appendChild(cell); rows.appendChild(empty);
+            cell.colSpan = 5; empty.appendChild(cell); rows.appendChild(empty);
           }
           items.forEach(function (p) {
             var row = E('tr'); row.setAttribute('data-od-id', 'coupon-' + p.id);
@@ -60,6 +60,7 @@
             else { media.textContent = 'ไม่มีภาพ'; }
             var code = E('td', 'cell-title', p.code);
             var desc = E('td'); desc.appendChild(E('div', 'cell-title', p.title)); desc.appendChild(E('span', 'sub', p.summary));
+            var ruleCell = E('td'); ruleCell.appendChild(ruleSummary(p.rule));
             var act = E('td'); var wrap = E('div', 'row-actions');
             var edit = E('button', 'btn-link', 'แก้ไข'); edit.type = 'button';
             edit.addEventListener('click', function () { openForm(p); });
@@ -71,13 +72,37 @@
               });
             });
             wrap.appendChild(edit); wrap.appendChild(del); act.appendChild(wrap);
-            [media, code, desc, act].forEach(function (td) { row.appendChild(td); }); rows.appendChild(row);
+            [media, code, desc, ruleCell, act].forEach(function (td) { row.appendChild(td); }); rows.appendChild(row);
           });
         }).catch(MAISON.handleApiError);
       }
+      /* ---------- กติกาส่วนลด (รูปแบบเดียวกับ server/pricing.js + seed.json) ---------- */
+      var WEEKDAYS_TH = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+      var RULE_TYPES = {
+        percent_off: { label: 'ลดตามเปอร์เซ็นต์', valueLabel: 'ส่วนลด (%)', hint: 'ลดตาม % ของค่าตั๋วรวม เช่น 20 = ลด 20%' },
+        bundle_price: { label: 'ราคากลุ่ม (ราคารวมทั้งชุด)', valueLabel: 'ราคารวม (บาท)', hint: 'ค่าตั๋วทั้งชุดเป็นราคาเดียว เช่น 2 ที่นั่ง 480 บาท ใช้กับการจองพอดีจำนวนที่นั่งที่กำหนด' },
+        unit_price: { label: 'ราคาต่อที่นั่ง', valueLabel: 'ราคาต่อที่นั่ง (บาท)', hint: 'คิดราคาต่อที่นั่งเป็นบาท เช่น 180 บาท/ที่นั่ง' }
+      };
+      /* สรุปกติกาเป็นข้อความสั้นสำหรับตาราง */
+      function ruleSummary(rule) {
+        if (!rule) { return E('span', 'sub', 'ไม่มีกติกา (โค้ดโชว์อย่างเดียว)'); }
+        var parts = [];
+        if (rule.type === 'percent_off') { parts.push('ลด ' + rule.value + '%'); }
+        else if (rule.type === 'bundle_price') { parts.push('กลุ่ม ' + rule.value + ' บาท'); }
+        else { parts.push(rule.value + ' บาท/ที่นั่ง'); }
+        if (rule.weekday != null) { parts.push(WEEKDAYS_TH[rule.weekday]); }
+        if (rule.timeFrom) { parts.push('ตั้งแต่ ' + rule.timeFrom + ' น.'); }
+        if (rule.timeTo) { parts.push('ก่อน ' + rule.timeTo + ' น.'); }
+        if (rule.seatCount != null) { parts.push('พอดี ' + rule.seatCount + ' ที่นั่ง'); }
+        var box = E('div');
+        box.appendChild(E('div', 'cell-title', RULE_TYPES[rule.type].label));
+        box.appendChild(E('span', 'sub', parts.join(' · ')));
+        return box;
+      }
       function openForm(existing) {
         var isEdit = !!existing;
-        var p = existing || { code: '', title: '', summary: '', details: '', terms: [], image: '' };
+        var p = existing || { code: '', title: '', summary: '', details: '', terms: [], image: '', rule: null };
+        var r = p.rule || { type: '', value: '', weekday: '', timeFrom: '', timeTo: '', seatCount: '' };
         var d = MAISON.dialog({ title: isEdit ? 'แก้ไขคูปอง' : 'เพิ่มคูปอง', bodyHTML:
           '<form class="form-grid" id="promotion-form">' +
           '<p class="form-error-banner span-2" id="promotion-error" hidden></p>' +
@@ -86,12 +111,59 @@
           '<div class="field span-2"><label for="promo-summary">คำอธิบายสั้น</label><input class="input" id="promo-summary" required maxlength="240" value="' + MAISON.esc(p.summary) + '"></div>' +
           '<div class="field span-2"><label for="promo-details">รายละเอียดคูปอง</label><textarea class="input" id="promo-details" required maxlength="1200" rows="4">' + MAISON.esc(p.details) + '</textarea></div>' +
           '<div class="field span-2"><label for="promo-terms">เงื่อนไข (หนึ่งข้อต่อบรรทัด ไม่เกิน 8 ข้อ)</label><textarea class="input" id="promo-terms" rows="4">' + MAISON.esc(p.terms.join('\n')) + '</textarea></div>' +
+          '<div class="field span-2"><label for="promo-rule-type">กติกาส่วนลด</label><select class="select" id="promo-rule-type">' +
+            '<option value="">ไม่มีกติกา (โค้ดโชว์อย่างเดียว)</option>' +
+            Object.keys(RULE_TYPES).map(function (k) {
+              return '<option value="' + k + '"' + (r.type === k ? ' selected' : '') + '>' + RULE_TYPES[k].label + '</option>';
+            }).join('') +
+          '</select><p class="field-hint" id="promo-rule-hint"></p></div>' +
+          '<div class="field" id="promo-rule-value-field" hidden><label for="promo-rule-value" id="promo-rule-value-label">มูลค่า</label><input class="input" id="promo-rule-value" type="number" min="1" inputmode="numeric" value="' + MAISON.esc(String(r.value == null ? '' : r.value)) + '"></div>' +
+          '<div class="field" id="promo-rule-weekday-field" hidden><label for="promo-rule-weekday">จำกัดวัน</label><select class="select" id="promo-rule-weekday">' +
+            '<option value="">ทุกวัน</option>' +
+            WEEKDAYS_TH.map(function (w, i) { return '<option value="' + i + '"' + (r.weekday === i ? ' selected' : '') + '>เฉพาะวัน' + w + '</option>'; }).join('') +
+          '</select></div>' +
+          '<div class="field" id="promo-rule-from-field" hidden><label for="promo-rule-from">เริ่มใช้ได้ตั้งแต่เวลา</label><input class="input" id="promo-rule-from" type="time" value="' + MAISON.esc(r.timeFrom || '') + '"><p class="field-hint">รอบฉายต้องเริ่มตั้งแต่เวลานี้ขึ้นไป</p></div>' +
+          '<div class="field" id="promo-rule-to-field" hidden><label for="promo-rule-to">ใช้ได้ก่อนเวลา</label><input class="input" id="promo-rule-to" type="time" value="' + MAISON.esc(r.timeTo || '') + '"><p class="field-hint">รอบฉายต้องเริ่มก่อนเวลานี้ (ไม่รวมเวลาที่ระบุ)</p></div>' +
+          '<div class="field" id="promo-rule-seats-field" hidden><label for="promo-rule-seats">จำกัดจำนวนที่นั่ง (พอดี)</label><input class="input" id="promo-rule-seats" type="number" min="1" max="99" inputmode="numeric" value="' + MAISON.esc(String(r.seatCount == null ? '' : r.seatCount)) + '"><p class="field-hint">ใช้ได้เมื่อจองพอดีจำนวนที่นั่งนี้</p></div>' +
           '<div class="field span-2"><label for="promo-image">แนบภาพโปรโมชันใหม่ (PNG, JPEG, WebP ไม่เกิน 180 KB)</label><input class="input" id="promo-image" type="file" accept="image/png,image/jpeg,image/webp">' +
           (p.image ? '<p class="field-hint">หากไม่เลือกไฟล์ จะใช้ภาพเดิม</p><img class="file-preview" alt="ภาพโปรโมชันปัจจุบัน" src="' + MAISON.esc(p.image) + '">' : '') + '</div>' +
           '<div class="modal-actions span-2"><button class="btn btn-secondary" type="button" id="promo-cancel">ยกเลิก</button><button class="btn btn-primary" type="submit" id="promo-save">บันทึก</button></div></form>'
         });
         d.el.classList.add('modal-wide');
         d.body.querySelector('#promo-cancel').addEventListener('click', d.close);
+        /* โชว์/ซ่อนฟิลด์ตามชนิดกติกา — แนวเดียวกับ syncSched ใน admin-movies.html */
+        var ruleType = d.body.querySelector('#promo-rule-type');
+        var ruleFields = {
+          value: d.body.querySelector('#promo-rule-value-field'),
+          weekday: d.body.querySelector('#promo-rule-weekday-field'),
+          from: d.body.querySelector('#promo-rule-from-field'),
+          to: d.body.querySelector('#promo-rule-to-field'),
+          seats: d.body.querySelector('#promo-rule-seats-field')
+        };
+        /* แต่ละชนิดใช้ฟิลด์ไหน (study จากคูปอง seed: MAISON20 / EVENINGPAIR / FRIDAY180) */
+        var RULE_FIELDS_BY_TYPE = {
+          percent_off: ['value', 'weekday'],
+          bundle_price: ['value', 'from', 'to', 'seats'],
+          unit_price: ['value', 'weekday', 'to']
+        };
+        function syncRuleFields() {
+          var t = ruleType.value;
+          var show = RULE_FIELDS_BY_TYPE[t] || [];
+          Object.keys(ruleFields).forEach(function (k) {
+            var hide = show.indexOf(k) === -1;
+            if (hide) {
+              /* ล้างค่าฟิลด์ที่ซ่อน ไม่ให้ค่าจากชนิดกติกาก่อนหน้าค้างอยู่ใน UI */
+              ruleFields[k].querySelectorAll('input, select').forEach(function (el) { el.value = ''; });
+            }
+            ruleFields[k].hidden = hide;
+            ruleFields[k].querySelectorAll('input, select').forEach(function (el) { el.disabled = hide; });
+          });
+          d.body.querySelector('#promo-rule-hint').textContent = t ? RULE_TYPES[t].hint : 'เลือกชนิดกติกาเพื่อให้โค้ดคำนวณส่วนลดตอนจองได้';
+          var valueLabel = d.body.querySelector('#promo-rule-value-label');
+          if (t) { valueLabel.textContent = RULE_TYPES[t].valueLabel; }
+        }
+        ruleType.addEventListener('change', syncRuleFields);
+        syncRuleFields();
         d.body.querySelector('#promotion-form').addEventListener('submit', function (event) {
           event.preventDefault();
           var error = d.body.querySelector('#promotion-error');
@@ -102,8 +174,25 @@
             title: d.body.querySelector('#promo-title').value,
             summary: d.body.querySelector('#promo-summary').value,
             details: d.body.querySelector('#promo-details').value,
-            terms: d.body.querySelector('#promo-terms').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
+            terms: d.body.querySelector('#promo-terms').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean),
+            rule: null
           };
+          var t = ruleType.value;
+          if (t) {
+            /* อ่านเฉพาะฟิลด์ที่ชนิดกติกานี้ใช้ — ฟิลด์ที่ซ่อนอยู่ (ค้างค่าเดิมจากชนิดก่อนหน้า)
+               ต้องไม่หลุดไปอยู่ใน rule ที่บันทึก ไม่งั้นแก้ UI ไม่มีวันลบค่านั้นออกได้ */
+            payload.rule = { type: t };
+            var use = RULE_FIELDS_BY_TYPE[t];
+            if (use.indexOf('value') !== -1) { payload.rule.value = d.body.querySelector('#promo-rule-value').value; }
+            if (use.indexOf('weekday') !== -1) {
+              payload.rule.weekday = d.body.querySelector('#promo-rule-weekday').value === '' ? null : Number(d.body.querySelector('#promo-rule-weekday').value);
+            }
+            if (use.indexOf('from') !== -1) { payload.rule.timeFrom = d.body.querySelector('#promo-rule-from').value || null; }
+            if (use.indexOf('to') !== -1) { payload.rule.timeTo = d.body.querySelector('#promo-rule-to').value || null; }
+            if (use.indexOf('seats') !== -1) {
+              payload.rule.seatCount = d.body.querySelector('#promo-rule-seats').value === '' ? null : Number(d.body.querySelector('#promo-rule-seats').value);
+            }
+          }
           MAISON.readImage(d.body.querySelector('#promo-image').files[0]).then(function (image) {
             if (image) { payload.image = image; }
             return isEdit ? MAISON_API.adminUpdatePromotion(p.id, payload) : MAISON_API.adminCreatePromotion(payload);

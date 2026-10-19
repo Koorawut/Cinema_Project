@@ -33,14 +33,30 @@ async function assertTitleFree(title, movieId) {
   }
 }
 
+/* P-16/P-18: รอบอนาคตที่มีการจองของหนังนี้ — DISTINCT showtime_id จึงนับเป็น "รอบ"
+   ไม่ใช่จำนวนการจอง (L-2) และรอบอดีตไม่กัน (booking เก่าดูจาก snapshot ได้) */
+async function futureBookedRounds(movieId) {
+  return db.query(
+    'SELECT DISTINCT b.showtime_id FROM bookings b WHERE b.movie_id = $1 AND b.starts_at > $2',
+    [movieId, now().toISOString()]);
+}
+
+/* ชื่อรอบสำหรับข้อความ error: "YYYY-MM-DD รอบเช้า" */
+function roundLabel(showtimeId) {
+  const p = S.parseShowtimeId(showtimeId);
+  return p ? p.date + ' รอบ' + (S.periodByKey(p.period) || { label: p.period }).label : showtimeId;
+}
+function roundListText(showtimeIds) {
+  return showtimeIds.slice(0, 5).map(roundLabel).join(', ') +
+    (showtimeIds.length > 5 ? ' และอีก ' + (showtimeIds.length - 5) + ' รอบ' : '');
+}
+
 /* P-16: กันแก้โรง/ตารางฉายที่ทำให้รอบอนาคตที่มีคนจองหายไปหรือย้ายโรง
    ดูการจองของหนังนี้ที่ starts_at ยังไม่ถึง (รอบอดีตไม่กัน) แล้วตรวจว่า
    รอบเหล่านั้นยังอยู่ในตารางใหม่ (วันอยู่ในช่วง + ช่วงเวลายังมี + โรงไม่เปลี่ยน)
    เปลี่ยนเป็นไม่ฉายแล้ว (nowShowing=false) ถือเป็นการกระทบเช่นกัน */
 async function assertNoAffectedBookings(current, sched) {
-  const rows = await db.query(
-    'SELECT DISTINCT b.showtime_id FROM bookings b WHERE b.movie_id = $1 AND b.starts_at > $2',
-    [current.id, now().toISOString()]);
+  const rows = await futureBookedRounds(current.id);
   if (!rows.length) { return; }
   const hallChanged = !!sched.hallId && sched.hallId !== current.hallId;
   const dropped = [];
@@ -49,24 +65,24 @@ async function assertNoAffectedBookings(current, sched) {
     if (!p) { return; }
     const removed = !sched.hallId || hallChanged || p.date < sched.dateStart || p.date > sched.dateEnd ||
       sched.periods.indexOf(p.period) === -1;
-    if (removed) { dropped.push(p.date + ' รอบ' + (S.periodByKey(p.period) || { label: p.period }).label); }
+    if (removed) { dropped.push(roundLabel(r.showtime_id)); }
   });
   if (dropped.length) {
     // rows นับ DISTINCT showtime_id — จำนวน "รอบ" ที่มีการจอง ไม่ใช่จำนวนการจอง (L-2)
     throw new ApiError(409, 'แก้ตารางไม่ได้: มีการจองอยู่ใน ' + rows.length + ' รอบที่ยังไม่ถึงเวลาฉาย (' +
-      dropped.slice(0, 5).join(', ') + (dropped.length > 5 ? ' และอีก ' + (dropped.length - 5) + ' รอบ' : '') +
+      roundListText(dropped) +
       ') กรุณายกเลิกการจองหรือเลือกช่วงวัน/ช่วงเวลา/โรงที่ครอบรอบเดิม');
   }
 }
 
-/* GET /api/admin/movies?search= */
+/* GET /api/admin/movies?search=&page=&limit= — เรียงตาม id (เสถียร) */
 async function movies(ctx) {
   await auth.requireAdmin(ctx.req);
   const q = (ctx.query.get('search') || '').trim().toLowerCase();
   let list = await M.listMovies();
   if (q) { list = list.filter((m) => m.title.toLowerCase().indexOf(q) !== -1); }
   const today = await M.showtimesByMovie(list, todayISO(0));
-  return list.map((m) => {
+  const items = list.map((m) => {
     const hall = S.hallById(m.hallId);
     const sts = today[m.id] || [];
     return { id: m.id, title: m.title, genres: m.genres.slice(), price: m.price,
@@ -78,6 +94,13 @@ async function movies(ctx) {
       periodLabels: S.periodLabels(m.periods),
       todayStatus: m.nowShowing ? (sts.length ? (sts.some((s) => s.status === 'available') ? 'available' : 'full') : 'noshow') : 'upcoming' };
   });
+  const pg = paging(ctx);
+  if (!pg) { return items; }
+  // หน้าเกินขอบเขต → คืนหน้าสุดท้ายแทนลิสต์เปล่า (metadata ตรงหน้าที่คืนจริง)
+  const totalPages = Math.max(1, Math.ceil(items.length / pg.limit));
+  const page = Math.min(pg.page, totalPages);
+  return { items: items.slice((page - 1) * pg.limit, page * pg.limit), page, limit: pg.limit,
+    total: items.length, totalPages };
 }
 
 const UPSERT_COLS = 'title, genres, price, duration_min, age_rating, director, synopsis, release_date, now_showing, poster, hall_id, date_start, date_end, periods';
@@ -148,10 +171,19 @@ async function updateMovie(ctx) {
   return M.rowToMovie(r);
 }
 
-/* DELETE /api/admin/movies/:id — การจองเดิมเก็บ movie_title snapshot จึงยังแสดงในประวัติได้ */
+/* DELETE /api/admin/movies/:id — P-18: ห้ามลบหนังที่มีรอบอนาคตยังมีการจอง
+   (รอบที่เริ่มฉายไปแล้วไม่กัน — การจองเดิมเก็บ movie_title snapshot จึงยังแสดงในประวัติได้) */
 async function deleteMovie(ctx) {
   await auth.requireAdmin(ctx.req);
-  const r = await db.one('DELETE FROM movies WHERE id = $1 RETURNING title, poster', [ctx.params.id]);
+  const current = await M.getMovie(ctx.params.id);
+  if (!current) { throw new ApiError(404, 'ไม่พบภาพยนตร์เรื่องนี้'); }
+  const booked = await futureBookedRounds(current.id);
+  if (booked.length) {
+    throw new ApiError(409, 'ลบไม่ได้: มีการจองอยู่ใน ' + booked.length + ' รอบที่ยังไม่ถึงเวลาฉาย (' +
+      roundListText(booked.map((x) => x.showtime_id)) +
+      ') กรุณารอจนรอบที่มีการจองฉายไปแล้วจึงจะลบได้ (ระบบยังไม่รองรับการยกเลิกการจอง)');
+  }
+  const r = await db.one('DELETE FROM movies WHERE id = $1 RETURNING title, poster', [current.id]);
   if (!r) { throw new ApiError(404, 'ไม่พบภาพยนตร์เรื่องนี้'); }
   await images.discardImage(r.poster);
   return { ok: true, removedTitle: r.title };
@@ -159,18 +191,41 @@ async function deleteMovie(ctx) {
 
 /* ---------- บัญชีผู้ใช้ ---------- */
 
-/* GET /api/admin/users?search= */
+/* พารามิเตอร์แบ่งหน้า (opt-in): ไม่ส่ง page เลย = รูปแบบเดิมทั้งหมด (array)
+   ส่ง page มา = { items, page, limit, total, totalPages } — limit จำกัด 1–100 (default 20)
+   page จำกัดบนที่ 1e6 กันเลขหลักยาวเกิน bigint ของ Postgres (A4 LOW-1) */
+const PAGE_MAX = 1000000;
+function paging(ctx) {
+  const raw = ctx.query.get('page');
+  if (raw == null || raw === '') { return null; }
+  const page = Math.min(PAGE_MAX, Math.max(1, parseInt(raw, 10) || 1));
+  const limit = Math.max(1, Math.min(100, parseInt(ctx.query.get('limit'), 10) || 20));
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+/* GET /api/admin/users?search=&page=&limit= */
 async function users(ctx) {
   await auth.requireAdmin(ctx.req);
   const q = (ctx.query.get('search') || '').trim().toLowerCase().slice(0, 100);
   const like = '%' + q.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
-  const rows = await db.query(
-    'SELECT u.id, u.username, u.email, u.role, u.created_at, ' +
-    '(SELECT count(*)::int FROM bookings b WHERE b.user_id = u.id) AS booking_count ' +
-    'FROM users u WHERE $1 = \'\' OR lower(u.username) LIKE $2 OR lower(u.email) LIKE $2 ' +
-    'ORDER BY u.created_at, u.id', [q, like]);
-  return rows.map((r) => ({ id: r.id, username: r.username, email: r.email, role: r.role,
+  const WHERE = '$1 = \'\' OR lower(u.username) LIKE $2 OR lower(u.email) LIKE $2';
+  const SELECT = 'SELECT u.id, u.username, u.email, u.role, u.created_at, ' +
+    '(SELECT count(*)::int FROM bookings b WHERE b.user_id = u.id) AS booking_count FROM users u ';
+  const map = (rows) => rows.map((r) => ({ id: r.id, username: r.username, email: r.email, role: r.role,
     createdAt: toBangkokISO(r.created_at), bookingCount: Number(r.booking_count) }));
+  const pg = paging(ctx);
+  if (!pg) {
+    const rows = await db.query(SELECT + 'WHERE ' + WHERE + ' ORDER BY u.created_at, u.id', [q, like]);
+    return map(rows);
+  }
+  // นับก่อน เพื่อหน้าเกินขอบเขตจะได้ดึงหน้าสุดท้ายแทนคืนลิสต์เปล่า (metadata ตรงหน้าที่คืนจริง)
+  const total = Number((await db.one('SELECT count(*)::int AS n FROM users u WHERE ' + WHERE, [q, like])).n);
+  const totalPages = Math.max(1, Math.ceil(total / pg.limit));
+  const page = Math.min(pg.page, totalPages);
+  const rows = await db.query(
+    SELECT + 'WHERE ' + WHERE + ' ORDER BY u.created_at, u.id LIMIT $3 OFFSET $4',
+    [q, like, pg.limit, (page - 1) * pg.limit]);
+  return { items: map(rows), page, limit: pg.limit, total, totalPages };
 }
 
 /* PATCH /api/admin/users/:id/role { role } */
