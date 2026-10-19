@@ -1,7 +1,7 @@
 # บันทึกปัญหาและประเด็นค้าง: เว็บไซต์จองตั๋วภาพยนตร์
 
 อัปเดตล่าสุด: 19 ตุลาคม 2026 (v2.3 — ปิด P-18, P-19 + ฟอร์มกติกาคูปองฝั่ง admin + แบ่งหน้า)  
-สถานะโครงการ: v2.3 — 15 หน้า + backend จริงบน Vercel (Function `/api`) + Neon Postgres + Vercel Blob + cron เลื่อนตารางฉายรายวัน; mock เดิมย้ายเป็น `assets/js/api-mock.js` ใช้กับ T1 เท่านั้น — v1.1 แก้ P-10; v1.2 แก้ P-11; v1.3 แก้ P-13; v1.4 admin คูปอง; v2.0 ปิด P-03, P-06, P-10 (ด้วย cookie จริง), L-1, L-2; v2.1 ปิด P-08; v2.2 ปิด P-12, P-15, P-16, P-17 ผ่าน T5 30/30 + smoke 22/22; 19 ต.ค. smoke บน production 14/14 ผ่าน (รอบที่ 8); v2.3 ปิด P-18, P-19 ผ่าน T5 34/34 + smoke 22/22 (รอบที่ 9) พร้อมฟอร์มกติกาคูปอง + pagination  
+สถานะโครงการ: v2.3 — 15 หน้า + backend จริงบน Vercel (Function `/api`) + Neon Postgres + Vercel Blob + cron เลื่อนตารางฉายรายวัน; mock เดิมย้ายเป็น `assets/js/api-mock.js` ใช้กับ T1 เท่านั้น — v1.1 แก้ P-10; v1.2 แก้ P-11; v1.3 แก้ P-13; v1.4 admin คูปอง; v2.0 ปิด P-03, P-06, P-10 (ด้วย cookie จริง), L-1, L-2; v2.1 ปิด P-08; v2.2 ปิด P-12, P-15, P-16, P-17 ผ่าน T5 30/30 + smoke 22/22; 19 ต.ค. smoke บน production 14/14 ผ่าน (รอบที่ 8); v2.3 ปิด P-18, P-19 ผ่าน T5 34/34 + smoke 22/22 (รอบที่ 9) พร้อมฟอร์มกติกาคูปอง + pagination; 19 ต.ค. smoke บน production 8/8 ผ่าน (รอบที่ 10)  
 เอกสารหลัก: `cinema-frontend-plan.md` · สรุปส่งต่อ: `cinema-v1-summary.md` · การเปลี่ยนแปลง: `CHANGELOG.md`
 
 ไฟล์นี้แยก **ปัญหาที่พบ**, **ข้อจำกัดในการตรวจเอกสาร**, และ **เรื่องที่ยังต้องตัดสินใจ** ออกจากแผนงาน ไม่ใช้แทนหลักฐานว่าเว็บไซต์หรือเกณฑ์ Rubrics ผ่านแล้ว ทุกครั้งที่อัปเดตโครงการ ให้ตรวจและแก้รายการที่เกี่ยวข้องในไฟล์นี้ แล้วแจ้งในรายงานความคืบหน้าว่าเพิ่ม/ปิด/คงปัญหาใดบ้าง
@@ -143,3 +143,13 @@ Backend จริงบน Vercel (Function เดียว `api/index.js`) + Ne
 - เวอร์ชัน 2.3.0 (`VERSION` ใน app.js, eyebrow, footer, package.json)
 - **บันทึกเป็นข้อจำกัด (ไม่เปิด ID):** mock `adminDeleteMovie` ยังไม่มี guard P-18 (parity gap เจตนา ตามแบบ P-16/P-17 — mock ใช้กับ T1 ในเครื่องเท่านั้น ไม่ deploy); TOCTOU ใน `deleteMovie`/`updateMovie` ช่วง check-then-act ระดับมิลลิวินาที (ระดับเดโม ยอมรับเหมือน P-16); ลำดับข้อความ error ของ `promotionRule` กรณี `{type ตั้งไว้, value null}` ต่างกันระหว่าง mock กับ server (ตอบ 422 เหมือนกัน); ฟอร์มเปิดชุดกติกาน้อยกว่าที่ pricing engine รองรับ (ครอบ 3 ชนิดตาม seed); ตรรกะ clamp ของ pagination ซ้ำสามที่ (admin.js `paging()`, bookings.js inline, mock `paginate()`)
 - ไฟล์ปัญหา: ปิด P-18, P-19 / ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
+
+## รอบ smoke production v2.3 (19 ตุลาคม 2026)
+
+หลัง merge v2.3 (`3a6378b`) และ deploy ขึ้น production (`maison-cinema-gu8a58vn5-ai-test-project1.vercel.app`, deployment `gu8a58vn5`) แล้ว A3 รัน smoke ด้วย curl ตรงกับ production — **ผ่านทั้ง 8 กลุ่มเคส** รายละเอียดใน `tests/test-log.md` รอบที่ 10:
+
+- **ยืนยันบน production จริง:** P-18 (ลบหนังที่มี booking รอบอนาคต → 409 ข้อความเต็มตรงตามที่ระบุ, หนังไม่มีการจอง → ลบได้), P-19 (redeem รอบที่เริ่มไปแล้ว → 422, รอบอนาคต → 200 quote ตรงสูตร), กติกาคูปอง (PATCH เปลี่ยน/ล้าง/คงกติกา), pagination (รูปร่าง 2 แบบ, snap หน้า, คุม `page` เลขหลักยาว → 200, `limit` clamp), cron fail-closed (ไม่มี/ผิด Bearer → 401), สมัคร/login/`me` (บัญชี `qa_prod_2`), จองรอบอนาคตสำเร็จ + จองซ้ำ → 409 พร้อม `conflicts`, `/api/config` + `/api/movies` 200 จาก Neon, เวอร์ชัน "2.3 (v2.3)" บนหน้าแรก
+- **ของทดสอบที่ค้างใน DB:** บัญชี `qa_prod_2` + หนัง `m12` "QA Prod P18 Reel" + การจอง `MAI-MWC8` (รอบ `st-m12-2026-10-26-morning`, ที่นั่ง `hall-01-H1`) — การจองนี้ทำให้ลบ `m12` ไม่ได้โดยออกแบบ ต้องรอรอบ 2026-10-26 10:30 ผ่านไป หรือลบแถว DB ด้วยมือ; คูปอง `QAPROD23` ลบคืนหมด (promotions กลับเป็น 3 โค้ดของ seed); ของทดสอบรอบ preview ล้างก่อน merge แล้ว
+- **กรณีที่ข้าม:** "ลบหนังที่ booking เป็นอดีตแล้ว = ลบได้" ของ P-18 ข้ามบน production (คุมเวลาจากภายนอกไม่ได้) — T5 ในเครื่องครอบกรณีนี้ด้วย `setNow` แล้ว (รอบที่ 9)
+- rollback target หากจำเป็น: deployment `7l15vd2oq` (v2.2)
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / ปิดแล้วทั้งหมดของรอบนี้ / คงค้าง P-01, P-04, P-07

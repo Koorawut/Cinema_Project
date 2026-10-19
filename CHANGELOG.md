@@ -23,6 +23,11 @@
 - pagination: `page` เลขหลักยาว (เช่น 9999999999999999999) เคยทำให้ Postgres overflow เป็น 500 — ตอนนี้กันด้วย cap 1e6 แล้วตอบ 200
 - `tests/api-http.test.js` (เคส P-16): ย้ายคำสั่งลบหนังทดสอบเข้าไปอยู่ในหน้าต่าง `setNow` อนาคตเดียวกับที่สร้าง booking เพื่อไม่ให้การจองอนาคตของเคสนั้นกลายเป็นอดีตก่อนถูกลบ (เคสจะ time-bomb เมื่อรันตอนเย็น)
 
+## Deploy production v2.3 — 19 ตุลาคม 2026 (ไม่เปลี่ยนเลขเวอร์ชัน คงเป็น 2.3.0)
+
+- merge v2.3 ขึ้น `main` (`3a6378b`) → Vercel build deployment `maison-cinema-gu8a58vn5-ai-test-project1.vercel.app` (deployment `gu8a58vn5`, Ready)
+- smoke บน production ผ่าน 8/8 กลุ่มเคส (รอบที่ 10 ใน `tests/test-log.md`): P-18, P-19, กติกาคูปอง, pagination, cron fail-closed, สมัคร/login/`me`, จอง + จองซ้ำ 409; rollback target หากจำเป็น: deployment `7l15vd2oq` (v2.2)
+
 ## [2.2.0] — 19 ตุลาคม 2026
 
 รอบแก้ปัญหาจากการอ่านโค้ดหลัง deploy (P-12, P-15, P-16, P-17, P-14 บางส่วน) + cron เลื่อนตารางฉายอัตโนมัติ — สรุปผล: T1 49/49, unit 19/19, T5 HTTP 30/30, client parity 3/3, รวม 101/101 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 7)

@@ -425,3 +425,37 @@
 - `cinema-issues.md`: ปิด P-18, P-19 · ไม่เพิ่ม ID ใหม่ · บันทึกข้อจำกัด 5 ข้อของรอบ v2.3 (mock ไม่มี guard P-18, TOCTOU check-then-act, ลำดับข้อความ promotionRule กรณี value null, ฟอร์มเปิดกติกา 3 ชนิดตาม seed, clamp ซ้ำสามที่) · คงค้าง P-01, P-04, P-07
 - หนี้การทดสอบเดิมคงอยู่: smoke เต็มบน Preview/Production ของ v2.3, layout มือถือด้วย screenshot, remember me ข้ามการปิดเบราว์เซอร์
 - ไฟล์ปัญหา: ปิด P-18, P-19 / ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
+
+---
+
+## รอบที่ 10 — 19 ตุลาคม 2026 · v2.3.0 บน production จริง (smoke หลัง deploy)
+
+ไม่มีการแก้โค้ด ไม่ได้รันชุดอัตโนมัติ (`npm test` / `npm run test:smoke`) ในรอบนี้ — A3 ยิง smoke ด้วย **curl ตรงกับ deployment production** `https://maison-cinema-gu8a58vn5-ai-test-project1.vercel.app` (deployment `gu8a58vn5`, Ready; หลัง merge v2.3 `3a6378b` ขึ้น `main`)
+
+### ผลรายกลุ่มเคส
+
+| กลุ่มเคส | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| `GET /api/config` + `GET /api/movies` | 200 — ตอบจาก Neon จริง; หน้าแรก eyebrow "เวอร์ชัน 2.3 (v2.3)" | ผ่าน |
+| Cron fail-closed | `GET /api/cron/refresh-schedule` ไม่มี Bearer → 401 · Bearer ผิด → 401 | ผ่าน |
+| สมัคร + login + `me` | สร้างและใช้บัญชี `qa_prod_2` (`u-08814fd4c596`) ได้ครบ 3 ขั้น (201/200/200) | ผ่าน |
+| ลบหนังที่มี booking รอบอนาคต (P-18) | หนังทดสอบ `m12` "QA Prod P18 Reel" (hall-01 รอบเช้า 2026-10-25..27) ที่มีการจอง `MAI-MWC8` → DELETE → 409 ข้อความเต็ม "ลบไม่ได้: มีการจองอยู่ใน 1 รอบที่ยังไม่ถึงเวลาฉาย (2026-10-26 รอบเช้า) กรุณารอจนรอบที่มีการจองฉายไปแล้วจึงจะลบได้ (ระบบยังไม่รองรับการยกเลิกการจอง)"; หนัง `m13` ที่ไม่มีการจอง → DELETE 200 | ผ่าน |
+| redeem รอบที่เริ่มไปแล้ว (P-19) | คูปอง `QAPROD23` (`percent_off` 25) — redeem รอบ `st-m04-2026-10-19-morning` (ยิงตอน 23:19) → 422 ข้อความตรงตามที่ระบุ · redeem รอบอนาคต `st-m04-2026-10-20-morning` → 200 พร้อม quote `{ticketSubtotal: 240, discount: 60, serviceFee: 30, total: 210}` | ผ่าน |
+| กติกาคูปอง (rules API) | PATCH เปลี่ยนกติกาเป็น `unit_price` 160 → 200 · PATCH `rule: null` → ล้างกติกา · PATCH ไม่ส่ง `rule` → คงกติกาเดิม (แก้เฉพาะ title) | ผ่าน |
+| Pagination | ไม่ส่ง param = array (users 53, movies 12) · ส่ง `page`/`limit` = `{items,limit,page,total,totalPages}` · `me/bookings?page=99` snap กลับหน้า 1 · `page=9999999999999999999` → 200 ทั้ง 3 endpoint (ไม่เป็น 500) · `limit=500` → clamp เป็น 100 | ผ่าน |
+| จองรอบอนาคต + จองซ้ำ | จองรอบอนาคตสำเร็จ รหัส `MAI-MWC8` · จองที่นั่งเดิมซ้ำ → 409 พร้อม `conflicts ["hall-01-H1"]` | ผ่าน |
+
+หมายเหตุ: กรณี "ลบหนังที่ booking เป็นอดีตแล้ว = ลบได้" ของ P-18 ข้ามการยิงบน production (คุมเวลาจากภายนอกไม่ได้) — T5 ในเครื่องครอบกรณีนี้ด้วย `setNow` แล้ว (รอบที่ 9)
+
+### ของทดสอบที่ค้างใน DB หลังรอบนี้
+
+- บัญชี `qa_prod_2` + หนัง `m12` "QA Prod P18 Reel" + การจอง `MAI-MWC8` (รอบ `st-m12-2026-10-26-morning`, ที่นั่ง `hall-01-H1`, รวม 240) — การจองนี้ทำให้ลบ `m12` ไม่ได้โดยออกแบบ ต้องรอรอบ 2026-10-26 10:30 ผ่านไป หรือลบแถว DB ด้วยมือ
+- คูปอง `QAPROD23` ลบคืนหมดแล้ว (promotions กลับเป็น 3 โค้ดของ seed) · `m13` สร้างแล้วลบ ไม่หลงเหลือ · ทุก session ออกจากระบบแล้ว
+- ของทดสอบจากรอบ preview (`qa_preview_2`, preview `m12`, `QAPREV23`) ล้างก่อน merge แล้ว
+
+### สรุปรอบ
+
+- smoke บน production ผ่านทั้ง 8 กลุ่มเคส — P-18, P-19, กติกาคูปอง (rules API) และ pagination ยืนยันบน production จริงแล้ว (เดิมยืนยันด้วย T5/T1 บน PGlite รอบที่ 9); cron fail-closed ยืนยันซ้ำบน deployment ใหม่
+- rollback target หากจำเป็น: deployment `7l15vd2oq` (v2.2)
+- `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่ม — บันทึกผลเป็นหลักฐานยืนยันบน production ของรายการที่ปิดไปแล้วในรอบที่ 9
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / ปิดแล้วทั้งหมดของรอบนี้ / คงค้าง P-01, P-04, P-07
