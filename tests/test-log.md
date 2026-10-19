@@ -345,3 +345,39 @@
 - `cinema-issues.md`: ปิด P-12, P-15, P-16, P-17 · P-14 ปิดบางส่วน (โค้ดเสร็จ รอเปลี่ยนรหัส admin/re-seed บน production) · เพิ่ม P-18, P-19 · คงค้าง P-01, P-04, P-07
 - หนี้การทดสอบเดิมคงอยู่: smoke เต็มบน Preview/Production, แนบภาพ (รอ `BLOB_READ_WRITE_TOKEN`), layout มือถือด้วย screenshot, remember me ข้ามการปิดเบราว์เซอร์; เพิ่ม: ทดสอบ cron จริงบน Vercel หลังตั้ง `CRON_SECRET`
 - ไฟล์ปัญหา: ปิด P-12, P-15, P-16, P-17 / เพิ่ม P-18, P-19 / P-14 ปิดบางส่วน / คงค้าง P-01, P-04, P-07
+
+---
+
+## รอบที่ 8 — 19 ตุลาคม 2026 · v2.2.0 บน production จริง (smoke หลัง deploy)
+
+ไม่มีการแก้โค้ด ไม่ได้รันชุดอัตโนมัติ (`npm test` / `npm run test:smoke`) ในรอบนี้ — Cluster Head ยิง smoke ด้วย **curl ตรงกับ deployment production** `https://maison-cinema-7l15vd2oq-ai-test-project1.vercel.app` (deployment `7l15vd2oq`, Ready; หลัง merge v2.2 `6be5552`); ผู้ใช้ปิด Deployment Protection แล้วจึง curl ตรงได้ (ต่างจากรอบที่ 6 ที่ต้องใช้ `vercel curl`)
+
+### ผลรายเคส
+
+| เคส | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| `GET /api/config` | 200 — `today` 2026-10-19 ตอบจาก Neon จริง | ผ่าน |
+| `GET /api/movies` | 200 — now showing 8 เรื่อง | ผ่าน |
+| หน้าแรก | eyebrow "เวอร์ชัน 2.2 (v2.2)" | ผ่าน |
+| `GET /api/cron/refresh-schedule` ไม่มี Bearer | 401 | ผ่าน |
+| `GET /api/cron/refresh-schedule` Bearer ผิด | 401 — fail-closed ยืนยันบน production | ผ่าน |
+| สมัคร + login + `me` | สร้างและใช้บัญชี `qa_prod_1` ได้ | ผ่าน |
+| จองรอบที่เริ่มไปแล้ว (P-15) | `st-m04-2026-10-19-morning` (10:30) → ปฏิเสธ "รอบนี้เริ่มฉายไปแล้ว ไม่สามารถจองได้ กรุณาเลือกรอบอื่น" | ผ่าน |
+| จองรอบอนาคต | `st-m04-2026-10-20-morning` ที่นั่ง `hall-02-H10` → สำเร็จ รหัส `MAI-G92Z` | ผ่าน |
+| จองที่นั่งเดิมซ้ำ | 409 พร้อม `conflicts ["hall-02-H10"]` | ผ่าน |
+| แก้ตารางหนังที่มี booking รอบอนาคต (P-16) | `PATCH /api/admin/movies/m04` เปลี่ยน `hallId` → 409 "แก้ตารางไม่ได้: มีการจองอยู่ใน 4 รอบที่ยังไม่ถึงเวลาฉาย..." | ผ่าน |
+| แก้ราคาอย่างเดียว (P-16) | `PATCH` เฉพาะราคา → 200 | ผ่าน |
+| สิทธิ์ admin endpoint | บัญชี role user → 403; ไม่ login → 401 | ผ่าน |
+| cookie `maison_sid` | `HttpOnly; Secure; SameSite=Lax` | ผ่าน |
+| สถิติ admin | ตัวเลขจาก DB จริง (ผู้ใช้ทั้งหมด 52, การจอง 3,302) | ผ่าน |
+
+### ของทดสอบที่ค้างใน DB หลังรอบนี้
+
+- บัญชี `qa_prod_1` + การจอง `MAI-G92Z` (`b-d7ca825e80d3de6d`, รอบ `st-m04-2026-10-20-morning`, ที่นั่ง `hall-02-H10`) — ฝากไว้เป็นหลักฐานแบบเดียวกับการ smoke รอบ preview ที่เคยฝากบัญชี/ตั๋วทดสอบไว้; หากต้องการล้างให้ลบจากหน้า admin
+
+### สรุปรอบ
+
+- smoke บน production ผ่านทั้ง 14 เคส — P-15, P-16 ยืนยันบน production จริงแล้ว (เดิมยืนยันด้วย T5 บน PGlite รอบที่ 7); cron fail-closed ยืนยันบน production; cookie flags ตรงตาม v2.0
+- ผู้ใช้ตั้งค่า Vercel ครบ: `CRON_SECRET` (Production + Preview), ปิด Deployment Protection, เชื่อม Vercel Blob — ข้อจำกัด "ยังไม่มี `BLOB_READ_WRITE_TOKEN`" และ "Vercel Authentication ยังเปิด" จากรอบที่ 6 ไม่มีแล้ว
+- `cinema-issues.md`: P-14 เปลี่ยนสถานะเป็น "ยอมรับความเสี่ยง" ตามการตัดสินใจของผู้ใช้ (ไม่เปลี่ยนรหัส admin บน production และไม่ reset รหัสผ่าน Neon DB — โปรเจกต์เรียน ไม่มีผู้ใช้จริง) · ไม่เปิด/ไม่ปิด ID เพิ่ม
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / P-14 ปรับเป็นยอมรับความเสี่ยง / คงค้าง P-01, P-04, P-07, P-18, P-19
