@@ -5,7 +5,8 @@
                                            + เติมที่นั่งจองให้รอบที่ยังว่างเปล่า
    ข้อมูลสาธิตทั้งหมดเป็น "แถวจริง" ใน DB (ทุกตัวเลขในหน้าเว็บนับจาก DB):
    - หนัง 11 เรื่อง + คูปอง 3 ใบ จาก assets/data/seed.json
-   - admin/admin123, demo/demo123 + ลูกค้าตัวอย่าง guest01–guest48
+   - admin/admin123, demo/demo123 (เฉพาะ dev/PGlite; production ใช้ env ADMIN_PASSWORD/DEMO_PASSWORD หรือสุ่ม — P-14)
+     + ลูกค้าตัวอย่าง guest01–guest48
    - ที่นั่งถูกจอง 28–70% ทุกรอบ (PRNG mulberry32 เดียวกับ mock)
      รอบเย็น The Hollow Choir (m02) วันนี้เต็ม — fixture ที่ชุดทดสอบใช้
    - ประวัติการจองย้อนหลัง 30 วัน + การจองของ demo: MAI-7Q3F, MAI-2K8D
@@ -19,6 +20,7 @@ const auth = require('../server/auth');
 const S = require('../server/schedule');
 const M = require('../server/movies');
 const { todayISO, startsAtISO } = require('../server/time');
+const { refreshSchedule } = require('../server/schedule-refresh'); // cron ใช้ร่วมกัน (ไม่ duplicate)
 const { migrate } = require('./migrate');
 const SEED = require('../assets/data/seed.json');
 
@@ -56,6 +58,34 @@ function nextCode() {
     for (let i = 0; i < 4; i++) { s += CODE_CHARS[Math.floor(codeRnd() * CODE_CHARS.length)]; }
     if (!usedCodes.has(s)) { usedCodes.add(s); return s; }
   }
+}
+
+/* ---------- รหัสผ่าน seed (P-14) ----------
+   pglite (dev ในเครื่อง): คง admin123/demo123 จาก seed.json เพื่อให้ T1/smoke/README ใช้ได้
+   อื่น (production/Neon): อ่านจาก env ADMIN_PASSWORD/DEMO_PASSWORD — ไม่ได้ตั้ง = สุ่ม 16 ตัว
+   แล้วพิมพ์ออกทาง console ครั้งเดียวพร้อมคำเตือน */
+const PW_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+function randomPassword() {
+  return Array.from(crypto.randomBytes(16)).map((b) => PW_CHARS[b % PW_CHARS.length]).join('');
+}
+function seedPasswords() {
+  const hints = SEED.demoPasswordHints;
+  if ((process.env.DATABASE_URL || '').startsWith('pglite:')) {
+    return { admin: hints.admin, demo: hints.demo };
+  }
+  const out = {};
+  [['admin', 'ADMIN_PASSWORD'], ['demo', 'DEMO_PASSWORD']].forEach(([who, envName]) => {
+    const fromEnv = process.env[envName];
+    if (fromEnv) {
+      out[who] = fromEnv;
+      console.log('seed: รหัสผ่าน ' + who + ' มาจาก env ' + envName);
+      return;
+    }
+    out[who] = randomPassword();
+    console.log('seed: สุ่มรหัสผ่าน ' + who + ' (ไม่ได้ตั้ง ' + envName + ') = ' + out[who]);
+    console.log('seed: !! เก็บรหัสนี้ทันที — จะไม่แสดงซ้ำอีก ถ้าหายต้อง seed ใหม่หรือ reset รหัสผ่านผ่านหน้าเว็บ');
+  });
+  return out;
 }
 
 /* ---------- insert แบบกลุ่มด้วย unnest (1 คำสั่งต่อ BATCH แถว) ---------- */
@@ -128,10 +158,10 @@ async function takenSeats(stId) {
 /* ---------- ขั้นตอน seed ---------- */
 
 async function seedUsers() {
-  const hints = SEED.demoPasswordHints;
+  const pw = seedPasswords(); // P-14: env/สุ่ม บน production, admin123/demo123 เฉพาะ pglite
   for (const u of SEED.users) {
     await db.query('INSERT INTO users (id, username, email, pass_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
-      [u.id, u.username, u.email, await auth.hashPassword(hints[u.username]), u.role, u.createdAt]);
+      [u.id, u.username, u.email, await auth.hashPassword(pw[u.username]), u.role, u.createdAt]);
   }
   // ลูกค้าตัวอย่าง: รหัสผ่านสุ่มที่ไม่มีใครรู้ (ล็อกอินไม่ได้ มีไว้เป็นเจ้าของการจองสาธิต)
   const guestHash = await auth.hashPassword(crypto.randomBytes(24).toString('base64url'));
@@ -233,14 +263,6 @@ async function guestIds() {
   return rows.map((r) => r.id);
 }
 
-async function refreshSchedule() {
-  for (const id of Object.keys(S.SEED_SCHEDULE)) {
-    const sch = S.SEED_SCHEDULE[id];
-    await db.query('UPDATE movies SET hall_id = $2, periods = $3, date_start = $4, date_end = $5 WHERE id = $1 AND now_showing',
-      [id, sch.hallId, sch.periods, todayISO(sch.from), todayISO(sch.to)]);
-  }
-}
-
 /* ใส่กติกาส่วนลดให้โปร seed ที่มีอยู่แล้วใน DB โดยไม่ล้างข้อมูล (ใช้หลัง migrate ครั้งแรกที่เพิ่มคอลัมน์กติกา) */
 async function syncPromotionRules() {
   for (const p of SEED.promotions) {
@@ -266,14 +288,15 @@ async function main() {
   await migrate();
 
   if (refresh && !reset) {
-    await refreshSchedule();
+    const r = await refreshSchedule(); // P-cron: เลื่อนเฉพาะเรื่อง seed ที่หมดวัน ข้ามเรื่องที่ชน
     await syncPromotionRules();
     await loadUsedCodes();
     const guests = await guestIds();
     if (!guests.length) { throw new Error('ยังไม่มีข้อมูล seed — รัน npm run db:seed ก่อน'); }
     const list = await windowBookings(guests);
     await insertBookings(list);
-    console.log('seed: เลื่อนตารางฉายให้เริ่ม ' + todayISO(0) + ' + เติมการจอง ' + list.length + ' รายการ');
+    console.log('seed: เลื่อนตารางฉาย ' + r.moved.length + ' เรื่อง ข้าม ' + r.skipped.length + ' เรื่อง + เติมการจอง ' + list.length + ' รายการ');
+    r.skipped.forEach((s) => { console.log('seed: ข้าม ' + s.id + ' — ' + s.reason); });
     return;
   }
 

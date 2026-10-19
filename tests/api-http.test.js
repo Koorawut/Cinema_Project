@@ -144,7 +144,15 @@ test('รอบเย็น m02 วันนี้เต็ม (fixture จา�
   assert.ok(seats.data.seats.every((x) => x.status === 'booked'));
   await c.login('demo', 'demo123');
   const b = await c.post('/api/bookings', { showtimeId: evening.id, seatIds: ['hall-01-A1'] });
-  assert.equal(b.status, 409);
+  // fixture "เต็ม" เกิดขึ้นเฉพาะรอบเย็นวันนี้ ย้ายวันไม่ได้ — ก่อน 19:00 ต้องชน 409 เต็ม
+  // หลัง 19:00 (รอบเริ่มฉายแล้ว) P-15 ปฏิเสธก่อนด้วย 422 เริ่มฉายไปแล้ว
+  if (Date.now() < Date.parse(evening.startsAt)) {
+    assert.equal(b.status, 409);
+    assert.match(b.data.error.message, /เต็ม|ถูกจอง/);
+  } else {
+    assert.equal(b.status, 422);
+    assert.match(b.data.error.message, /เริ่มฉายไปแล้ว/);
+  }
 });
 
 /* ---------- S2: สิทธิ์ ---------- */
@@ -328,15 +336,22 @@ test('จองที่นั่งเดียวกันพร้อมก�
 
 /* ---------- S4b: จองด้วยโค้ดส่วนลด (P-08) ---------- */
 
-/* วันที่ (เวลาไทย) ภายใน 6 วันที่ฉายที่ตรงกับวันในสัปดาห์ที่ระบุ (0=อาทิตย์) — null ถ้าไม่มีในช่วงนี้ */
-async function dateWithWeekday(c, weekday) {
+/* วันที่ในช่วงฉายที่เป็น "อนาคต" เท่านั้น (+1..+5) — ไม่รวมวันนี้ เพราะรอบวันนี้
+   อาจเริ่มฉายไปแล้วแล้ว P-15 ปฏิเสธก่อนถึงการตรวจโค้ด */
+async function futureDates(c) {
   const today = (await c.get('/api/config')).data.today;
-  for (let i = 0; i < 6; i++) {
+  const out = [];
+  for (let i = 1; i <= 5; i++) {
     const d = new Date(today + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + i);
-    if (d.getUTCDay() === weekday) { return d.toISOString().slice(0, 10); }
+    out.push(d.toISOString().slice(0, 10));
   }
-  return null;
+  return out;
+}
+/* วันที่อนาคตที่ตรงกับวันในสัปดาห์ที่ระบุ (0=อาทิตย์) — null ถ้าไม่มีในช่วงนี้ */
+async function dateWithWeekday(c, weekday) {
+  const dates = await futureDates(c);
+  return dates.find((iso) => new Date(iso + 'T00:00:00Z').getUTCDay() === weekday) || null;
 }
 async function showtimeOf(c, movieId, date) {
   const list = await c.get('/api/movies/' + movieId + '/showtimes?date=' + date);
@@ -351,7 +366,10 @@ test('จองด้วยโค้ด EVENINGPAIR: server คิดราค�
   const c = client();
   await c.login('demo', 'demo123');
   const today = (await c.get('/api/config')).data.today;
-  const st = await showtimeOf(c, 'm07', today) || await showtimeOf(c, 'm07', await dateWithWeekday(c, 1) || today);
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const tomorrow = tmr.toISOString().slice(0, 10);
+  const st = await showtimeOf(c, 'm07', tomorrow) || await showtimeOf(c, 'm07', today);
   assert.ok(st, 'ต้องมีรอบเย็นของ m07');
   const unit = (await c.get('/api/movies/m07')).data.price;
   const seats = await freeSeats(c, st, 2);
@@ -374,13 +392,15 @@ test('จองด้วยโค้ดที่ไม่ตรงเงื่�
   const c = client();
   await c.login('demo', 'demo123');
   const today = (await c.get('/api/config')).data.today;
-  const st = await showtimeOf(c, 'm04', today); // รอบเช้า ทุกวัน
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const st = await showtimeOf(c, 'm04', tmr.toISOString().slice(0, 10)); // รอบเช้า ทุกวัน — ใช้วันพรุ่งนี้ให้พ้นเวลาฉายวันนี้
   assert.ok(st);
   const seats = await freeSeats(c, st, 2);
   const before = (await c.get('/api/me/bookings')).data.length;
   const wed = await dateWithWeekday(c, 3);
-  const notWed = wed === today ? await dateWithWeekday(c, 4) : today;
-  const stNotWed = await showtimeOf(c, 'm04', notWed || today);
+  const notWed = wed ? (await futureDates(c)).find((iso) => iso !== wed && new Date(iso + 'T00:00:00Z').getUTCDay() !== 3) : null;
+  const stNotWed = notWed ? await showtimeOf(c, 'm04', notWed) : null;
   if (stNotWed && (new Date(stNotWed.date + 'T00:00:00Z').getUTCDay() !== 3)) {
     const bad = await c.post('/api/bookings', { showtimeId: stNotWed.id, seatIds: await freeSeats(c, stNotWed, 1), promoCode: 'MAISON20' });
     assert.equal(bad.status, 422);
@@ -431,7 +451,9 @@ test('โค้ดจาก admin ที่ไม่มีกติกา: redee
   const c = client();
   await c.login('demo', 'demo123');
   const today = (await c.get('/api/config')).data.today;
-  const st = await showtimeOf(c, 'm04', today);
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const st = await showtimeOf(c, 'm04', tmr.toISOString().slice(0, 10));
   const seats = await freeSeats(c, st, 1);
   const q = await c.post('/api/promotions/redeem', { code: created.data.code, showtimeId: st.id, seatIds: seats });
   assert.equal(q.status, 422);
@@ -476,6 +498,244 @@ test('admin คูปอง CRUD + ภาพ magic bytes ผิด = 422', async
   assert.ok((await c.get('/api/promotions')).data.some((p) => p.id === id && p.title === 'แก้แล้ว'));
   assert.equal((await c.del('/api/admin/promotions/' + id)).status, 200);
   assert.equal((await c.del('/api/admin/promotions/' + id)).status, 404);
+});
+
+/* ---------- S5b: P-15 รอบที่เริ่มฉายไปแล้ว ---------- */
+/* server ทำงานใน process เดียวกับเทส → require server/time ก่อน dev-server
+   แล้ว setNow() มีผลกับ handler จริง (isPast ใช้ now() เดียวกัน) */
+const maisonTime = require('../server/time');
+
+test('P-15: จองรอบที่เริ่มฉายไปแล้ว = 422 "รอบนี้เริ่มฉายไปแล้ว"', async () => {
+  if (BASE) { return; } // ต้องคุมเวลาใน process เดียวกับ server
+  const c = client();
+  await c.login('demo', 'demo123');
+  const today = (await c.get('/api/config')).data.today;
+  const st = await showtimeOf(c, 'm04', today); // รอบเช้า 10:30 วันนี้
+  assert.ok(st, 'ต้องมีรอบเช้า m04 วันนี้');
+  try {
+    maisonTime.setNow(today + 'T23:00:00+07:00'); // เวลาไทย 23:00 — รอบเช้าเริ่มไปแล้วแน่นอน
+    const r = await c.post('/api/bookings', { showtimeId: st.id, seatIds: ['hall-02-A1'] });
+    assert.equal(r.status, 422);
+    assert.equal(r.data.error.message, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถจองได้ กรุณาเลือกรอบอื่น');
+    // ตรวจว่าไม่มีการจองถูกสร้างจริง
+    assert.ok(!(await c.get('/api/me/bookings')).data.some((b) => b.showtimeId === st.id));
+  } finally {
+    maisonTime.setNow(null);
+  }
+});
+
+test('P-15: รอบวันนี้ที่ยังไม่ถึงเวลา และรอบพรุ่งนี้ ยังจองได้ตามปกติ', async () => {
+  if (BASE) { return; } // ต้องคุมเวลาใน process เดียวกับ server
+  const c = client();
+  await c.login('demo', 'demo123');
+  const today = (await c.get('/api/config')).data.today;
+  try {
+    maisonTime.setNow(today + 'T09:00:00+07:00'); // เช้า 9:00 — รอบเย็น 19:00 ของวันนี้ยังจองได้
+    const ev = await showtimeOf(c, 'm07', today);
+    assert.ok(ev, 'ต้องมีรอบเย็น m07 วันนี้');
+    const r = await c.post('/api/bookings', { showtimeId: ev.id, seatIds: (await freeSeats(c, ev, 1)) });
+    assert.equal(r.status, 201, 'รอบวันนี้ก่อนเวลาฉายต้องจองได้');
+  } finally {
+    maisonTime.setNow(null);
+  }
+  const tmr = new Date(today + 'T00:00:00Z');
+  tmr.setUTCDate(tmr.getUTCDate() + 1);
+  const st = await showtimeOf(c, 'm04', tmr.toISOString().slice(0, 10));
+  const r2 = await c.post('/api/bookings', { showtimeId: st.id, seatIds: (await freeSeats(c, st, 1)) });
+  assert.equal(r2.status, 201, 'รอบพรุ่งนี้จองได้ด้วยเวลาจริง');
+});
+
+/* ---------- S6b: P-16 แก้ตารางฉายเมื่อมีการจองอนาคต ---------- */
+
+test('P-16: แก้ตารางที่ทำให้การจองอนาคตหาย = 409, แก้ที่ไม่กระทบ = สำเร็จ', async () => {
+  const admin = client();
+  await admin.login('admin', 'admin123');
+  const today = (await admin.get('/api/config')).data.today;
+  const D = (n) => {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  // หนังใหม่ Hall 01 รอบเช้า +6..+8 (นอกตาราง seed ที่จอง windowBookings ไว้ 0..+5)
+  const created = await admin.post('/api/admin/movies', { title: 'P16 Guard Reel ' + uniq, genres: ['Drama'], price: 220,
+    durationMin: 100, ageRating: 'ท.', director: 'QA', synopsis: 'x', nowShowing: true,
+    hallId: 'hall-01', dateStart: D(6), dateEnd: D(8), periods: ['morning'] });
+  assert.equal(created.status, 201, 'สร้างหนังทดสอบไม่ได้: ' + JSON.stringify(created.data));
+  const mid = created.data.id;
+  // การจองอนาคต 1 รายการที่ D7 รอบเช้า
+  const demo = client();
+  await demo.login('demo', 'demo123');
+  const stId = 'st-' + mid + '-' + D(7) + '-morning';
+  const booked = await demo.post('/api/bookings', { showtimeId: stId, seatIds: ['hall-01-A1'] });
+  assert.equal(booked.status, 201, 'จองรอบอนาคตไม่ได้: ' + JSON.stringify(booked.data));
+
+  // แก้ที่กระทบการจองอนาคต → 409
+  const hallMove = await admin.patch('/api/admin/movies/' + mid, { hallId: 'hall-02' });
+  assert.equal(hallMove.status, 409, 'ย้ายโรงต้อง 409');
+  assert.match(hallMove.data.error.message, /แก้ตารางไม่ได้/);
+  const shrink = await admin.patch('/api/admin/movies/' + mid, { dateEnd: D(6) });
+  assert.equal(shrink.status, 409, 'หดวันสิ้นสุดต้อง 409');
+  assert.match(shrink.data.error.message, /แก้ตารางไม่ได้/);
+  const periodCut = await admin.patch('/api/admin/movies/' + mid, { periods: ['afternoon'] });
+  assert.equal(periodCut.status, 409, 'ตัดรอบเช้าออกต้อง 409');
+  assert.match(periodCut.data.error.message, /แก้ตารางไม่ได้/);
+  const stopShowing = await admin.patch('/api/admin/movies/' + mid, { nowShowing: false });
+  assert.equal(stopShowing.status, 409, 'เปลี่ยนเป็นไม่ฉายต้อง 409');
+
+  // แก้ที่ไม่กระทบ → สำเร็จ
+  const rename = await admin.patch('/api/admin/movies/' + mid, { title: 'P16 Guard Reel แก้ชื่อ ' + uniq, price: 250 });
+  assert.equal(rename.status, 200, 'แก้ชื่อ/ราคาต้องสำเร็จ: ' + JSON.stringify(rename.data));
+  assert.equal(rename.data.price, 250);
+  const extend = await admin.patch('/api/admin/movies/' + mid, { dateEnd: D(9) });
+  assert.equal(extend.status, 200, 'ยืดวันสิ้นสุดต้องสำเร็จ');
+  assert.equal(extend.data.dateEnd, D(9));
+
+  // การจองเดิมยังอยู่ครบ
+  assert.ok((await demo.get('/api/me/bookings')).data.some((b) => b.showtimeId === stId));
+
+  // หนังที่มีแต่การจองอดีต → แก้ตารางได้ (setNow ไปอนาคตทำให้การจองกลายเป็นอดีต)
+  try {
+    maisonTime.setNow(D(8) + 'T23:00:00+07:00');
+    const afterEnd = await admin.patch('/api/admin/movies/' + mid, { dateEnd: D(6), periods: ['afternoon'] });
+    assert.equal(afterEnd.status, 200, 'การจองอดีตต้องไม่กันแก้ตาราง: ' + JSON.stringify(afterEnd.data));
+  } finally {
+    maisonTime.setNow(null);
+  }
+  assert.equal((await admin.del('/api/admin/movies/' + mid)).status, 200);
+});
+
+/* ---------- S6c: P-17 rate limit redeem ต่อ IP ---------- */
+
+test('P-17: redeem เกิน 20 ครั้ง/15 นาที จาก IP เดียว = 429 และไม่ล็อกบัญชีจริง', async () => {
+  const c = client();
+  await c.login('demo', 'demo123');
+  // ยิง redeem จนกว่าจะชนเพดาน 20 ครั้ง/15 นาที (identifier redeem|ip แยกจาก login)
+  let hit429 = null;
+  for (let i = 0; i < 30 && !hit429; i++) {
+    const r = await c.post('/api/promotions/redeem', { code: 'NOPE-0000' }); // 404 แต่ยังนับ attempts
+    if (r.status === 429) { hit429 = r; }
+  }
+  assert.ok(hit429, 'ต้องชน 429 ภายใน 30 คำขอ');
+  assert.match(hit429.data.error.message, /ส่งรหัสบ่อยเกินไป/);
+
+  // identifier redeem|ip ต้องไม่กระทบ rate limit ของการ login บัญชีจริง
+  const loginOk = await client().login('demo', 'demo123');
+  assert.equal(loginOk.status, 200, 'login บัญชีจริงต้องยังได้ (ไม่โดนล็อกจาก redeem)');
+
+  // ใช้ session เดิมยังทำงานอื่นได้ปกติ (ไม่ใช่ 401/403 จากการถูกระงับ)
+  assert.equal((await c.get('/api/me/bookings')).status, 200);
+});
+
+/* ---------- S6d: P-14 รหัสผ่าน seed เส้นทาง PGlite ---------- */
+
+test('P-14 (เส้นทาง PGlite): seed --reset ได้ admin/admin123 + demo/demo123 login ผ่าน HTTP ได้', async () => {
+  // DB ของชุดทดสอบนี้มาจาก seed --reset บน PGlite (.pglite-test) ใน test.before
+  if (BASE) {
+    assert.ok(true, 'BASE_URL ภายนอก — ข้ามการตรวจ env (เทียบเฉพาะเมื่อ spawn เอง)');
+    return;
+  }
+  assert.ok(process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('pglite:'), 'ชุดนี้ต้องรันบน PGlite');
+  const a = await client().login('admin', 'admin123');
+  assert.equal(a.status, 200, 'admin/admin123 ต้อง login ได้');
+  assert.equal(a.data.user.role, 'admin');
+  const d = await client().login('demo', 'demo123');
+  assert.equal(d.status, 200, 'demo/demo123 ต้อง login ได้');
+  assert.equal(d.data.user.role, 'user');
+});
+
+/* ---------- S6e: Cron refresh-schedule ---------- */
+
+test('cron refresh-schedule: ไม่มี/ผิด Bearer = 401, secret ถูกต้อง = ย้ายเฉพาะหนัง seed ที่หมดวัน', async () => {
+  if (BASE) { return; } // ต้อง setNow ใน process เดียวกับ server (เห็นผลกับ guard P-16)
+  const today = (await client().get('/api/config')).data.today;
+  const D = (n) => {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // ไม่มี Authorization = 401
+  const anon = await client().get('/api/cron/refresh-schedule');
+  assert.equal(anon.status, 401);
+  assert.equal(anon.data.error.message, 'ไม่ได้รับอนุญาต');
+  // Bearer ผิด = 401
+  const wrongRes = await fetch(BASE + '/api/cron/refresh-schedule', { headers: { Authorization: 'Bearer wrong-secret' } });
+  assert.equal(wrongRes.status, 401);
+
+  const admin = client();
+  await admin.login('admin', 'admin123');
+  // หนัง admin เพิ่มเอง (id ไม่อยู่ใน SEED_SCHEDULE) ที่หมดวัน — ต้องไม่ถูกแตะ
+  const created = await admin.post('/api/admin/movies', { title: 'Cron Untouched ' + uniq, genres: ['Drama'], price: 200,
+    durationMin: 100, ageRating: 'ท.', director: 'QA', synopsis: 'x', nowShowing: true,
+    hallId: 'hall-02', dateStart: D(-6), dateEnd: D(-5), periods: ['evening'] });
+  assert.equal(created.status, 201, 'สร้างหนัง admin ไม่ได้: ' + JSON.stringify(created.data));
+  const adminMovieId = created.data.id;
+  const adminDates = { dateStart: created.data.dateStart, dateEnd: created.data.dateEnd };
+
+  try {
+    // setNow ไปอนาคต ทำให้การจอง seed ของ m01/m02/m08 (ช่วง 0..+5) เป็นอดีต → แก้ตารางได้
+    maisonTime.setNow(D(6) + 'T23:00:00+07:00');
+
+    // m02 → หมดวัน (จะถูก cron เลื่อนกลับ Hall 01 รอบเย็น 0..5 — ตำแหน่งว่างอยู่)
+    const m02 = await admin.patch('/api/admin/movies/m02', { dateStart: D(-6), dateEnd: D(-1) });
+    assert.equal(m02.status, 200, 'ตั้ง m02 ให้หมดวันไม่ได้: ' + JSON.stringify(m02.data));
+    // m01 → หมดวัน ก่อน (ถ้ายังอยู่ 0..3 จะชนตอนขยาย m08)
+    const m01 = await admin.patch('/api/admin/movies/m01', { dateStart: D(-6), dateEnd: D(-1) });
+    assert.equal(m01.status, 200, 'ตั้ง m01 ให้หมดวันไม่ได้: ' + JSON.stringify(m01.data));
+    // m08 ขยายเป็น 0..5 (Hall 01 รอบเช้า) — ให้ตำแหน่ง 0..3 ของ m01 ที่จะเลื่อนกลับไปชน
+    const m08 = await admin.patch('/api/admin/movies/m08', { dateStart: D(0), dateEnd: D(5) });
+    assert.equal(m08.status, 200, 'ขยาย m08 ไม่ได้: ' + JSON.stringify(m08.data));
+  } finally {
+    maisonTime.setNow(null);
+  }
+
+  // secret ถูกต้อง — ตั้งใน process ของเทส (server อ่านตอนรับคำขอ)
+  process.env.CRON_SECRET = 'cron-secret-t5';
+  try {
+    const okRes = await fetch(BASE + '/api/cron/refresh-schedule', { headers: { Authorization: 'Bearer cron-secret-t5' } });
+    assert.equal(okRes.status, 200);
+    const body = await okRes.json();
+    assert.equal(body.ok, true);
+    assert.ok(Array.isArray(body.detail.moved) && Array.isArray(body.detail.skipped));
+
+    // m02 ต้องถูกเลื่อนกลับ 0..5
+    const m02moved = body.detail.moved.find((x) => x.id === 'm02');
+    assert.ok(m02moved, 'm02 หมดวันต้องถูกเลื่อน: ' + JSON.stringify(body.detail));
+    assert.equal(m02moved.dateStart, D(0));
+    assert.equal(m02moved.dateEnd, D(5));
+    // m01 ต้องถูกข้ามเพราะชน m08 (Hall 01 รอบเช้า)
+    const m01skipped = body.detail.skipped.find((x) => x.id === 'm01');
+    assert.ok(m01skipped, 'm01 ที่เลื่อนแล้วชน m08 ต้องถูกข้าม: ' + JSON.stringify(body.detail));
+    assert.match(m01skipped.reason, /ชนกับ/);
+    // หนังของ admin ต้องไม่ถูกแตะ (ไม่อยู่ทั้ง moved และ skipped, วันที่คงเดิม)
+    assert.ok(!body.detail.moved.some((x) => x.id === adminMovieId));
+    assert.ok(!body.detail.skipped.some((x) => x.id === adminMovieId));
+    const adminMovieAfter = (await admin.get('/api/movies/' + adminMovieId)).data;
+    assert.equal(adminMovieAfter.dateStart, adminDates.dateStart, 'หนัง admin ต้องไม่ถูกเลื่อน');
+    assert.equal(adminMovieAfter.dateEnd, adminDates.dateEnd, 'หนัง admin ต้องไม่ถูกเลื่อน');
+
+    // รันซ้ำ = idempotent: m02 เลื่อนแล้ว, m01 ยังชนอยู่ → ย้าย 0 ข้าม 1
+    const again = await fetch(BASE + '/api/cron/refresh-schedule', { headers: { Authorization: 'Bearer cron-secret-t5' } });
+    const body2 = await again.json();
+    assert.equal(again.status, 200);
+    assert.equal(body2.moved, 0, 'รันซ้ำต้องไม่ย้ายอะไรอีก (idempotent)');
+    assert.equal(body2.skipped, body2.detail.skipped.length);
+  } finally {
+    delete process.env.CRON_SECRET;
+  }
+
+  // คืนสถานะ seed: ต้องคืน m08 กลับ 4..5 ก่อน แล้วจึง m01 กลับ 0..3
+  // (ถ้าคืน m01 ก่อน จะชนกับ m08 ที่ยังขยายเป็น 0..5 อยู่ → 409)
+  try {
+    maisonTime.setNow(D(6) + 'T23:00:00+07:00');
+    const r8 = await admin.patch('/api/admin/movies/m08', { dateStart: D(4), dateEnd: D(5) });
+    assert.equal(r8.status, 200, 'คืน m08 ไม่ได้: ' + JSON.stringify(r8.data));
+    const r1 = await admin.patch('/api/admin/movies/m01', { dateStart: D(0), dateEnd: D(3) });
+    assert.equal(r1.status, 200, 'คืน m01 ไม่ได้: ' + JSON.stringify(r1.data));
+  } finally {
+    maisonTime.setNow(null);
+  }
+  assert.equal((await admin.del('/api/admin/movies/' + adminMovieId)).status, 200);
 });
 
 /* ---------- S6: admin หนัง ---------- */

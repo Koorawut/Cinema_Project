@@ -187,7 +187,14 @@ test('error จาก server กลายเป็น ApiError แบบเด�
   await assert.rejects(http.login({ identifier: 'demo', password: 'x' }), (e) => e.status === 401);
   await http.login({ identifier: 'demo', password: 'demo123' });
   const st = (await http.showtimes('m02', http.showDates()[0])).items.find((s) => s.period === 'evening');
-  await assert.rejects(http.createBooking({ showtimeId: st.id, seatIds: ['hall-01-A1'] }), (e) => e.status === 409);
+  // รอบเย็น m02 วันนี้เต็มเสมอ (fixture seed): ก่อน 19:00 ต้อง 409 เต็ม
+  // หลัง 19:00 P-15 ปฏิเสธก่อนด้วย 422 เริ่มฉายไปแล้ว (fixture ย้ายวันไม่ได้)
+  if (Date.now() < Date.parse(st.startsAt)) {
+    await assert.rejects(http.createBooking({ showtimeId: st.id, seatIds: ['hall-01-A1'] }), (e) => e.status === 409);
+  } else {
+    await assert.rejects(http.createBooking({ showtimeId: st.id, seatIds: ['hall-01-A1'] }),
+      (e) => e.status === 422 && /เริ่มฉายไปแล้ว/.test(e.message));
+  }
   const st2 = (await http.showtimes('m04', http.showDates()[2])).items[0];
   const seat = (await http.seats(st2.id)).seats.find((s) => s.status === 'booked').id;
   await assert.rejects(http.createBooking({ showtimeId: st2.id, seatIds: [seat] }),

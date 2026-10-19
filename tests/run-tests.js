@@ -106,6 +106,25 @@
     try { return fn(); } finally { G.Date = Real; }
   }
 
+  /* เทียมเวลาแบบ async — จำเป็นสำหรับ API ของ mock ที่ตอบผ่าน Promise
+     (withMockedNow ใช้ได้เฉพาะโค้ด sync) — P-15 */
+  async function withFakeNow(fakeMs, fn) {
+    var Real = G.Date;
+    function Fake(t) { return t === undefined ? new Real(fakeMs) : new Real(t); }
+    Fake.prototype = Real.prototype;
+    Fake.now = function () { return fakeMs; };
+    Fake.parse = Real.parse;
+    Fake.UTC = Real.UTC;
+    G.Date = Fake;
+    try { return await fn(); } finally { G.Date = Real; }
+  }
+  /* เวลา (ms) ของวันนี้ตามเขตเวลาท้องถิ่น เพื่อส่งเข้า withFakeNow */
+  function todayLocalMs(hour, minute) {
+    var today = refTodayISO();
+    return new Date(parseInt(today.slice(0, 4), 10), parseInt(today.slice(5, 7), 10) - 1,
+      parseInt(today.slice(8, 10), 10), hour, minute || 0, 0, 0).getTime();
+  }
+
   var lastBookedSeats = [];
   var TESTS = [];
   function t(suite, name, fn) { TESTS.push({ suite: suite, name: name, fn: fn }); }
@@ -345,20 +364,32 @@
   /* ============================================================ S5 */
   t('S5 ที่นั่งและการจอง', 'จองโดยไม่เลือกที่นั่ง = 422 และจองรอบเต็ม = 409', async function () {
     await login('tester1', 'Passw0rd1');
-    await expectError(A.createBooking({ showtimeId: stIdOf('m01', refTodayISO(), 'morning'), seatIds: [] }), 422);
-    await expectError(A.createBooking({ showtimeId: stIdOf('m02', refTodayISO(), 'evening'), seatIds: ['hall-01-A1'] }), 409);
+    await expectError(A.createBooking({ showtimeId: stIdOf('m01', refISO(1), 'morning'), seatIds: [] }), 422);
+    // fixture "รอบเต็ม" เกิดเฉพาะรอบเย็นวันนี้ (ย้ายวันไม่ได้):
+    // ก่อน 19:00 ต้องชน 409 เต็ม — หลัง 19:00 P-15 (parity ใน mock) ปฏิเสธก่อนด้วย 422 เริ่มฉายไปแล้ว
+    var full = stIdOf('m02', refTodayISO(), 'evening');
+    var isEveningPast = (function () {
+      var now2 = new Date();
+      return new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 19, 0, 0, 0).getTime() <= now2.getTime();
+    })();
+    if (!isEveningPast) {
+      await expectError(A.createBooking({ showtimeId: full, seatIds: ['hall-01-A1'] }), 409, 'รอบเต็มต้อง 409 ก่อนเวลาฉาย');
+    } else {
+      var err = await expectError(A.createBooking({ showtimeId: full, seatIds: ['hall-01-A1'] }), 422, 'รอบที่เริ่มแล้วต้อง 422 (P-15 mock)');
+      ok(/เริ่มฉายไปแล้ว/.test(err.message), 'หลังเวลาฉายต้องเป็นข้อความ P-15 — ได้: ' + err.message);
+    }
     await A.logout();
   });
   t('S5 ที่นั่งและการจอง', 'ที่นั่งต้องเป็นของโรงที่ฉายรอบนั้น: จอง m07 (Hall 02) ด้วยที่นั่ง hall-01 = 422 / ที่นั่งไม่มีจริง = 422', async function () {
     await login('tester1', 'Passw0rd1');
-    var st = stIdOf('m07', refTodayISO(), 'evening');
+    var st = stIdOf('m07', refISO(1), 'evening');
     await expectError(A.createBooking({ showtimeId: st, seatIds: ['hall-01-A1'] }), 422, 'ที่นั่งของโรงอื่นต้องถูกปฏิเสธ');
     await expectError(A.createBooking({ showtimeId: st, seatIds: ['hall-02-Z99'] }), 422, 'ที่นั่งที่ไม่มีจริงต้องถูกปฏิเสธ');
     await A.logout();
   });
   t('S5 ที่นั่งและการจอง', 'จอง 2 ที่นั่ง: รวม = (ราคา 260 + ค่าบริการ 30) × 2 และที่นั่งเปลี่ยนเป็น booked', async function () {
     await login('tester1', 'Passw0rd1');
-    var st = stIdOf('m01', refTodayISO(), 'morning');
+    var st = stIdOf('m01', refISO(1), 'morning');
     var pick = await firstAvailable(st, 2);
     eq(pick.length, 2);
     var b = (await A.createBooking({ showtimeId: st, seatIds: pick })).booking;
@@ -378,7 +409,7 @@
   });
   t('S5 ที่นั่งและการจอง', 'จองที่นั่งเดิมซ้ำ = 409 พร้อมรายการ conflicts ตรงกับที่นั่งที่ชน', async function () {
     ok(lastBookedSeats.length === 2, 'ต้องมีที่นั่งที่จองไว้จากข้อก่อน');
-    var err = await expectError(A.createBooking({ showtimeId: stIdOf('m01', refTodayISO(), 'morning'), seatIds: lastBookedSeats }), 409);
+    var err = await expectError(A.createBooking({ showtimeId: stIdOf('m01', refISO(1), 'morning'), seatIds: lastBookedSeats }), 409);
     eq((err.conflicts || []).sort(), lastBookedSeats.slice().sort(), 'conflicts ต้องตรงกับที่นั่งที่ชน');
   });
   t('S5 ที่นั่งและการจอง', 'myBookings: tester1 เห็นการจองของตัวเองครบ field (ชื่อ/ที่นั่ง/ยอด)', async function () {
@@ -410,6 +441,32 @@
     await A.logout();
   });
 
+  /* ============================================================ S5b: P-15 รอบที่เริ่มฉายไปแล้ว */
+  t('S5b จองรอบที่เริ่มไปแล้ว (P-15)', 'รอบเช้าวันนี้ (10:30) เมื่อ "ขณะนี้" = 23:00 แล้ว: จอง = 422 พร้อมข้อความเริ่มฉายไปแล้ว', async function () {
+    await login('tester1', 'Passw0rd1');
+    var st = stIdOf('m01', refTodayISO(), 'morning');
+    await withFakeNow(todayLocalMs(23, 0), async function () {
+      var err = await expectError(A.createBooking({ showtimeId: st, seatIds: ['hall-01-A1'] }), 422);
+      ok(/เริ่มฉายไปแล้ว/.test(err.message), 'ข้อความต้องบอกว่ารอบเริ่มฉายไปแล้ว — ได้: ' + err.message);
+    });
+    await A.logout();
+  });
+  t('S5b จองรอบที่เริ่มไปแล้ว (P-15)', 'รอบเย็นวันนี้ (19:00) ยังจองได้เมื่อ "ขณะนี้" = 09:00 และรอบพรุ่งนี้จองได้ตามปกติ', async function () {
+    await login('tester1', 'Passw0rd1');
+    var evening = stIdOf('m07', refTodayISO(), 'evening');
+    await withFakeNow(todayLocalMs(9, 0), async function () {
+      var pick = await firstAvailable(evening, 1);
+      eq(pick.length, 1, 'รอบเย็นวันนี้ต้องมีที่นั่งว่าง');
+      var b = (await A.createBooking({ showtimeId: evening, seatIds: pick })).booking;
+      ok(/^MAI-/.test(b.code), 'จองรอบเย็นวันนี้สำเร็จก่อนเวลาฉาย (fake now 09:00)');
+    });
+    var stTomorrow = stIdOf('m01', refISO(1), 'morning');
+    var pick2 = await firstAvailable(stTomorrow, 1);
+    var b2 = (await A.createBooking({ showtimeId: stTomorrow, seatIds: pick2 })).booking;
+    ok(/^MAI-/.test(b2.code), 'รอบพรุ่งนี้จองได้ตามปกติด้วยเวลาจริง');
+    await A.logout();
+  });
+
   /* ============================================================ S6 */
   t('S6 โปรโมชัน', 'promotion(): ดึงรายละเอียดตาม id ได้ และ id ไม่มี = 404', async function () {
     var p = await A.promotion('p01');
@@ -424,7 +481,7 @@
     await expectError(A.redeem('NOPE123'), 404);
   });
   t('S6 โปรโมชัน', 'redeem + showtime/seats: คืน quote ราคาจริง (EVENINGPAIR 2 ที่นั่ง = 480 + ค่าบริการ 60) และโค้ดผิดเงื่อนไข = 422', async function () {
-    var evening = stIdOf('m07', refTodayISO(), 'evening');
+    var evening = stIdOf('m07', refISO(1), 'evening');
     var two = ['hall-02-A1', 'hall-02-A2'];
     var r = await A.redeem('EVENINGPAIR', evening, two);
     eq(r.quote.total, 480 + 60);
@@ -456,7 +513,7 @@
   });
   t('S6 โปรโมชัน', 'จองด้วยโค้ด: total/discount/promoCode ถูกเก็บ และไม่สร้างการจองเมื่อโค้ดผิดเงื่อนไข', async function () {
     await login('tester1', 'Passw0rd1');
-    var st = stIdOf('m07', refTodayISO(), 'evening');
+    var st = stIdOf('m07', refISO(1), 'evening');
     var pick = await firstAvailable(st, 2);
     var before = (await A.myBookings()).length;
     await expectError(A.createBooking({ showtimeId: st, seatIds: pick.slice(0, 1), promoCode: 'EVENINGPAIR' }), 422, 'EVENINGPAIR ต้องพอดี 2 ที่นั่ง');

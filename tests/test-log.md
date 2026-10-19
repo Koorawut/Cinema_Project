@@ -270,3 +270,78 @@
 
 - `cinema-issues.md`: ปิด P-08 · ไม่มี ID ใหม่ · คงค้าง P-01, P-04 (บางส่วน), P-07, P-12
 - หนี้การทดสอบ: ยังไม่ได้รัน migrate/ทดสอบกับ Neon จริง; MAISON20 (พุธ) ทดสอบแบบมีเงื่อนไข เพราะรอบฉาย 6 วันอาจไม่มีวันพุธ — ส่วนนี้ครอบด้วย unit `tests/pricing.test.js`
+
+---
+
+## รอบที่ 6 — 19 ตุลาคม 2026 · v2.1 บน Neon + Vercel จริง (ตรวจหลัง deploy)
+
+ไม่มีการแก้โค้ด ไม่ได้รัน `npm test` ในรอบนี้ — เป็นการยืนยันการ deploy และอ่านโค้ด backend
+
+| รายการ | ผล |
+| --- | --- |
+| `npm run db:migrate` กับ Neon | สำเร็จ ("schema พร้อมใช้งาน") |
+| `npm run db:seed -- --reset` กับ Neon | สำเร็จ: users 50, movies 11, bookings 3,299, seats 8,073 |
+| `git push` → Vercel build (`maison-cinema-g6rpa9ndm`) | Ready 11 วินาที |
+| `GET /api/config` บน deployment จริง | 200 — `today` 2026-10-19, 2 โรง, 3 ช่วงเวลา, `serviceFee` 30, `user` null |
+| `GET /api/movies` บน deployment จริง | 200 — 8 เรื่องที่กำลังฉาย (`total` 8) ยอด `ticketsSold` มาจาก DB; The Hollow Choir สถานะ `full` ตาม fixture ของ seed |
+
+หมายเหตุวิธีตรวจ: deployment เปิด Vercel Authentication จึงเรียกผ่าน `vercel curl <url>` (CLI สร้าง bypass token ให้) ไม่ใช่ curl ตรง
+
+### ยังไม่ได้ทดสอบ (หนี้การทดสอบ)
+
+- smoke เต็มบน Preview/Production: สมัคร, login, จอง, จองที่นั่งเดียวกันสองแท็บต้องได้ 409, admin CRUD, สถิติ
+- แนบภาพโปสเตอร์/คูปอง (ยังไม่มี `BLOB_READ_WRITE_TOKEN`)
+- เทสต์ยืนยัน P-14 ถึง P-17 (พบจากอ่านโค้ด)
+
+### สรุปรอบ
+
+- `cinema-issues.md`: เพิ่ม P-14, P-15, P-16, P-17 · ไม่ปิดรายการใด · P-06 อัปเดตหมายเหตุ · คงค้าง P-01, P-04, P-07, P-12
+
+---
+
+## รอบที่ 7 — 19 ตุลาคม 2026 · v2.2.0 (ความปลอดภัย + ตรรกะจอง + cron ตารางฉาย)
+
+แก้ P-12, P-15, P-16, P-17 (จากการอ่านโค้ดรอบ deploy) + P-14 ฝั่งโค้ด + เพิ่ม cron เลื่อนตารางฉายรายวัน
+
+### สภาพแวดล้อม / วิธีรัน
+
+- Windows + Node.js, **PGlite** ในเครื่อง (แยก `.pglite-test*` ต่อชุดเหมือนรอบก่อน) ผ่าน handler `api/index.js` ตัวเดียวกับ Vercel; smoke รันหลัง `npm run db:seed -- --reset` ด้วย `DATABASE_URL=pglite:./.pglite`
+- **ควบคุมเวลาสำหรับเคส P-15:** `server/time.js` เพิ่ม injectable clock — `setNow()` สำหรับ T5 (`withFakeNow` helper) และ env `MAISON_NOW` (มี guard ไม่ใช้เมื่อ `VERCEL_ENV=production`) ทำให้ย้าย "ตอนนี้" ไปตอนเย็นเพื่อทดสอบจองรอบเช้าที่ผ่านแล้วได้โดยไม่รอเวลาจริง
+- คำสั่ง: `npm test` (T1 + unit + T5 + client parity) · `npm run test:smoke`
+
+### ตารางผล
+
+| ชุด | ผล |
+| --- | --- |
+| T1 mock (`tests/run-tests.js`) | **49/49** (เดิม 47: ย้าย 3 เคสที่ใช้รอบของวันนี้เป็นวันพรุ่งนี้กัน time-bomb + เพิ่ม 2 เคส P-15) |
+| Unit (`time` + `pricing`) | **19/19** |
+| T5 HTTP (`tests/api-http.test.js`) | **30/30** (เดิม 24: +6 เคสใหม่ P-14/P-15/P-16/P-17/cron) |
+| Client parity | **3/3** |
+| **รวม `npm test`** | **101 ผ่าน / 0 fail / 101** |
+| Smoke เบราว์เซอร์ (`tests/smoke-browser.js`) | **22/22** (21 เดิม + 1 ขั้นใหม่ P-12; แก้ regex เวอร์ชัน 2.1→2.2) |
+
+### เคสใหม่ต่อ P-id
+
+- **P-15 (T1 2 + T5 2):** จองรอบที่ `startsAt` ผ่านแล้ว → 422 "รอบนี้เริ่มฉายไปแล้ว..." โดยใช้ `setNow()`/`withFakeNow` คุมเวลา; รอบยังไม่ถึงเวลาของวันนี้ + รอบวันพรุ่งนี้จองได้ตามปกติ — ครอบทั้ง `server/routes/bookings.js` และ `api-mock.js` (parity)
+- **P-16 (T5 1):** ย้ายโรง/หด `dateEnd`/ตัดช่วงเวลา/`nowShowing=false` ของหนังที่มี booking รอบอนาคต → 409; แก้ชื่อ/ราคา/ยืด `dateEnd` = ผ่าน; booking เป็นอดีตแล้วแก้ได้
+- **P-17 (T5 1):** redeem 21 ครั้งจาก IP เดียว → 429 ตั้งแต่คำขอที่ 21; login บัญชีจริงยังทำงานหลังโดน rate limit redeem (แยก bucket `rl:redeem|{ip}` จาก bucket ของ login)
+- **P-14 (T5 1):** เส้นทาง pglite seed `--reset` แล้ว login `admin123`/`demo123` ผ่าน HTTP ได้ตามเดิม; เส้นทาง production (non-pglite) ครอบด้วยการอ่านโค้ด — `seed.js` ใช้ env `ADMIN_PASSWORD`/`DEMO_PASSWORD` หรือสุ่ม 16 ตัวอักษรเมื่อไม่ใช่ pglite
+- **Cron (T5 1):** `GET /api/cron/refresh-schedule` ไม่มี/ผิด Bearer → 401; secret ถูก → เลื่อนตาราง (moved) / ไม่มีอะไรเลื่อน (skipped) / รันซ้ำ idempotent; ไม่แตะ bookings/หนังที่ admin เพิ่มเอง
+- **P-12 (smoke 1 ขั้น):** เปิด checkout ด้วย `seats=hall-99-Z99` → แสดง "ไม่พบรหัสที่นั่งนี้ในรอบฉาย" (ไม่ใช่ข้อความ "ถูกจองไปแล้ว" อีกต่อไป)
+
+### การแก้ 4 เคส time-bomb ใน T1
+
+- เคสเดิม 3 เคสที่อ้างรอบของวันนี้ (จะกลายเป็นรอบที่ผ่านไปแล้วเมื่อรันตอนเย็น หลัง P-15 บล็อกการจองรอบที่เริ่มไปแล้ว) ย้ายมาใช้รอบของวันพรุ่งนี้ + เคส MAISON20/FRIDAY180 ที่เคยมีเงื่อนไขตามวัน ปรับให้เลือกวันที่ตรมเงื่อนไขจากช่วงฉายจริง — รวมเป็นการย้าย/ปรับ 4 เคส ทำให้ชุด T1 รันได้ทุกเวลาของวัน
+
+### บั๊ก/ข้อจำกัดที่พบระหว่างรอบ
+
+- **P-18 (เปิดใหม่, กลาง):** `deleteMovie` ใน `server/routes/admin.js` ยังลบหนังที่มี booking รอบอนาคตได้ (booking เก็บ snapshot ชื่อแต่รอบหาย) — คลาสเดียวกับ P-16 พบโดย A2 ระหว่าง review
+- **P-19 (เปิดใหม่, ต่ำ):** `POST /api/promotions/redeem` ไม่เช็ค `isPast` — quote รอบที่เริ่มไปแล้วได้ (จองจริงโดน P-15 ปฏิเสธแล้ว จึงเป็น UX ไม่ใช่ช่องโหว่) พบโดย A3
+- **ข้อจำกัดที่บันทึก (ไม่เปิด ID):** clientIp อ่าน XFF ซ้ายสุดก่อน x-real-ip (โค้ดเดิม — ปลอดภัยบน Vercel ที่ edge เขียนทับ XFF, ปลอมได้เฉพาะ dev server); mock (`api-mock.js`) ยังไม่มี P-16/P-17/cron parity (mock ใช้กับ T1 ในเครื่องเท่านั้น ไม่ deploy); rate limit redeem นับทุกคำขอรวมสำเร็จ (ไม่รีเซ็ต) เกณฑ์ 20 ครั้ง/15 นาที
+
+### สรุปรอบ
+
+- T1 49/49 · unit 19/19 · T5 30/30 · client parity 3/3 · รวม **101/101** · smoke **22/22**
+- `cinema-issues.md`: ปิด P-12, P-15, P-16, P-17 · P-14 ปิดบางส่วน (โค้ดเสร็จ รอเปลี่ยนรหัส admin/re-seed บน production) · เพิ่ม P-18, P-19 · คงค้าง P-01, P-04, P-07
+- หนี้การทดสอบเดิมคงอยู่: smoke เต็มบน Preview/Production, แนบภาพ (รอ `BLOB_READ_WRITE_TOKEN`), layout มือถือด้วย screenshot, remember me ข้ามการปิดเบราว์เซอร์; เพิ่ม: ทดสอบ cron จริงบน Vercel หลังตั้ง `CRON_SECRET`
+- ไฟล์ปัญหา: ปิด P-12, P-15, P-16, P-17 / เพิ่ม P-18, P-19 / P-14 ปิดบางส่วน / คงค้าง P-01, P-04, P-07

@@ -1,6 +1,6 @@
 # สรุปโครงการ — เว็บจองตั๋วหนัง MAISON (frontend v1 + backend v2)
 
-อัปเดต: 15 ตุลาคม 2026 (v2.0 — backend จริงบน Vercel + Neon Postgres + Vercel Blob) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.0 (v2.0)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
+อัปเดต: 19 ตุลาคม 2026 (v2.2 — ความปลอดภัย + ตรรกะจอง + cron ตารางฉายรายวัน) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.2 (v2.2)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
 เอกสารหลัก: `cinema-frontend-plan.md` (สัญญา API หัวข้อ 5, Rubrics หัวข้อ 3.1) · `CHANGELOG.md` · `cinema-issues.md` · `tests/test-log.md`
 
 ## 1. สิ่งที่ส่งมอบ
@@ -17,7 +17,7 @@
 | `server/http.js` | `ApiError`, ตอบ JSON, อ่าน body (≤1 MB), cookie, บังคับ `Content-Type: application/json` สำหรับคำขอที่แก้ข้อมูล (415) |
 | `server/auth.js` | bcrypt, session (token สุ่ม 32 ไบต์ เก็บ sha256 ใน DB), `requireUser` / `requireAdmin`, จำกัด login ผิด |
 | `server/db.js` | Neon (`@neondatabase/serverless`) หรือ PGlite เมื่อ `DATABASE_URL=pglite:…` |
-| `server/time.js` · `server/schedule.js` | วันที่เขตเวลาไทย · โรง/ช่วงเวลา/ค่าบริการ/id รอบฉาย และตรวจตารางฉายชนกัน |
+| `server/time.js` · `server/schedule.js` · `server/schedule-refresh.js` | วันที่เขตเวลาไทย (v2.2: injectable clock + `isPast()`) · โรง/ช่วงเวลา/ค่าบริการ/id รอบฉาย และตรวจตารางฉายชนกัน · เลื่อนตารางหนัง seed ที่หมดวัน (ใช้กับ cron) |
 | `server/validate.js` · `server/images.js` · `server/movies.js` | ตรวจฟอร์ม (ข้อความ error เดิม) · ภาพขึ้น Vercel Blob · สถานะรอบ/ที่นั่งจาก DB |
 | `server/routes/*.js` | `auth`, `catalog`, `bookings`, `promotions`, `admin` |
 | `db/schema.sql` | DDL (idempotent) |
@@ -42,13 +42,13 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 
 ## 3. ข้อมูลสาธิต (seed เป็นแถวจริงใน DB)
 
-- บัญชี: `admin/admin123` (role admin), `demo/demo123` (role user) — หน้า login มีปุ่มกรอกทั้งสองบัญชีอัตโนมัติ; ลูกค้าตัวอย่าง `guest01`…`guest48` (รหัสผ่านสุ่ม ไม่ได้ใช้ login) รวม 50 บัญชี
+- บัญชี: `admin/admin123` (role admin), `demo/demo123` (role user) — ใช้ได้เฉพาะเครื่อง dev/pglite (v2.2: seed เส้นทาง non-pglite ใช้ `ADMIN_PASSWORD`/`DEMO_PASSWORD` จาก env หรือสุ่ม — P-14); หน้า login มีปุ่มกรอกทั้งสองบัญชีอัตโนมัติ; ลูกค้าตัวอย่าง `guest01`…`guest48` (รหัสผ่านสุ่ม ไม่ได้ใช้ login) รวม 50 บัญชี
 - หนัง now showing 8 เรื่อง + coming soon 3 เรื่อง (m09–m11) · คูปอง 3 ใบ (MAISON20, EVENINGPAIR, FRIDAY180)
 - ราคาบัตร ฿200–฿300 · ค่าบริการ ฿30/ตั๋ว · 2 โรง (`hall-01`/`hall-02` แถว A–H × 12) · 3 ช่วงเวลา (10:30 / 14:20 / 19:00) · วันฉาย 6 วันนับจากวันนี้
 - ที่นั่งถูกจองจริงโดยบัญชี guest 28–70% ของทุกรอบ (PRNG deterministic เดิม) · รอบเย็น The Hollow Choir (m02) วันนี้เต็ม · ประวัติการจองย้อนหลัง 30 วัน ให้กราฟ/ตารางหน้า admin มีข้อมูล
 - การจองของ demo: MAI-7Q3F (Orbit 9, hall-01, E7+E8) และ MAI-2K8D (Bangkok Bank Run, hall-02, C4)
 - ตัวเลขหน้า admin ทุกตัวนับจาก DB จริง (ไม่มีตัวเลขบวกเพิ่ม) แต่เป็นชุดตัวอย่างจาก seed — หน้าเว็บติดป้ายกำกับไว้แล้ว
-- **ข้อจำกัด:** วันฉายเก็บเป็นวันที่ตายตัวตอน seed — หลังผ่านไป ~6 วันรอบของหนัง seed จะหมด ให้รัน `npm run db:seed -- --refresh-schedule` (เลื่อนช่วงวันฉายให้เริ่มวันนี้ ไม่ลบการจอง) หรือแก้ช่วงวันในหน้า admin-movies
+- **ข้อจำกัด:** วันฉายเก็บเป็นวันที่ตายตัวตอน seed — v2.2 เป็นต้นไป cron รายวัน (`/api/cron/refresh-schedule`) เลื่อนช่วงวันฉายของหนัง seed ที่หมดวันให้อัตโนมัติ (ต้องตั้ง `CRON_SECRET`); รัน `npm run db:seed -- --refresh-schedule` ด้วยมือได้เมื่อต้องการเลื่อนทันที หรือแก้ช่วงวันในหน้า admin-movies (แก้/ลบตารางที่กระทบ booking รอบอนาคตโดน 409 ตั้งแต่ v2.2 — P-16)
 
 ## 4. ที่เก็บข้อมูล
 
@@ -63,12 +63,14 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 
 - v1 (frontend): ผลตรวจฟังก์ชัน/ความปลอดภัยและการทดสอบรอบที่ 1–3 ดู `tests/test-log.md` · สีที่นั่งยึดข้อกำหนดผู้ใช้ (P-09, `design-tokens.md`)
 - **v2.0 (รอบที่ 4):** T1 mock 44/44 · unit เขตเวลา 6/6 · T5 HTTP 20/20 (401/403/415, cookie flags, logout/replay, จองพร้อมกันได้ 201 หนึ่ง 409 หนึ่ง, CRUD หนัง/คูปอง/บัญชี, ภาพ magic bytes ผิด 422, สถิติตรงผลรวม DB) · client parity 3/3 · smoke เบราว์เซอร์ Edge headless 20/20 ครบ 15 หน้า (login → รอบ → ที่นั่ง → checkout → ตั๋ว → ประวัติ, admin ทั้ง 4 หน้า, cookie HttpOnly, localStorage ว่าง)
-- ยังไม่ได้ทดสอบบน Neon จริงและ Preview deployment — ทดสอบทั้งหมดรันกับ PGlite ในเครื่อง (ดูหัวข้อ 8 ขั้นที่ 6)
+- ชุดทดสอบอัตโนมัติทั้งหมดรันกับ PGlite ในเครื่อง; **19 ต.ค. 2026** migrate + seed บน Neon จริงสำเร็จและตรวจ `/api/config`, `/api/movies` บน deployment จริงแล้ว (ดู `tests/test-log.md` รอบที่ 6) — ยังไม่ได้รัน smoke เต็มบน Preview/Production (ดูหัวข้อ 8 ขั้นที่ 6)
+- **v2.2 (รอบที่ 7):** แก้ P-12, P-15, P-16, P-17 + P-14 ฝั่งโค้ด + cron เลื่อนตารางฉาย — T1 49/49 · unit 19/19 · T5 30/30 · client parity 3/3 · รวม 101/101 · smoke 22/22; เปิดใหม่ P-18 (ลบหนังที่มี booking อนาคต), P-19 (redeem ไม่เช็ค isPast); P-14 รอเปลี่ยนรหัส admin บน production
 
 ## 6. เงื่อนไขที่ยังค้าง (ส่งต่อรอบถัดไป)
 
 - Pagination (Rubric 8 bonus) — API ยังคืนทั้งหมดเหมือน mock; เพิ่ม `?page=&limit=` ที่ `admin/users`, `admin/movies`, `me/bookings` ได้
-- P-04 นิยามการนับ visitor (ตอนนี้ไม่มีตารางนับผู้เข้าชม) · P-08 ปิดแล้วใน v2.1 (checkout คำนวณส่วนลดที่ server; โค้ดจาก admin ยังไม่มีหน้ากำหนดกติกา) · P-07 ข้อมูล/ภาพจริง · P-12 ข้อความ checkout · P-01 ตรวจภาพจริงรายหน้า
+- **P-14 (ปิดบางส่วน):** เปลี่ยนรหัส `admin` บน production หรือ re-seed ด้วย `ADMIN_PASSWORD` — โค้ด seed แก้แล้วใน v2.2 (บัญชีสาธิตใช้ได้เฉพาะ dev) แต่รหัสเดิมที่ seed ไว้บน Neon ยังใช้อยู่ · **P-18:** กันลบหนังที่มี booking รอบอนาคต · **P-19:** เพิ่ม `isPast` ที่ redeem
+- P-04 นิยามการนับ visitor (ตอนนี้ไม่มีตารางนับผู้เข้าชม) · P-07 ข้อมูล/ภาพจริง · P-01 ตรวจภาพจริงรายหน้า · ปิดแล้วในรอบก่อน: P-03, P-06, P-08, P-10, P-12, P-15, P-16, P-17
 - Rubric 1 (wireframe/architecture) — ยังต้องถามผู้สอนว่าส่งไฟล์แยกหรืออ้างหัวข้อ 2 ของไฟล์นี้ + แผนได้
 - Rubric 9 — cookie เป็น HttpOnly จึงแสดง session ID ฝั่ง JS ไม่ได้ (ตั้งใจ); หลักฐานวงจร session ใช้ DevTools → Application → Cookies + ตาราง `sessions` แทน — ควรยืนยันกับผู้สอน
 
@@ -107,11 +109,21 @@ DATABASE_URL=pglite:./.pglite COOKIE_INSECURE=1 npm run dev
 4. ในเครื่อง: `vercel link` → `vercel env pull .env.local` → `npm install`
 5. `npm run db:migrate` → `npm run db:seed -- --reset` (รันกับ Neon ตาม `DATABASE_URL` ใน `.env.local`)
 6. `vercel` (Preview) → ทดสอบ smoke บน URL preview (login, จอง, admin) → `vercel --prod`
-7. ทุก ~6 วัน หรือก่อนสาธิต: `npm run db:seed -- --refresh-schedule`
+7. v2.2 เป็นต้นไป: **cron รายวันเลื่อนตารางฉายอัตโนมัติ** (`vercel.json` `crons` เรียก `GET /api/cron/refresh-schedule` เวลา 00:00 เขตเวลาไทย) — ต้องตั้ง `CRON_SECRET` ใน Vercel env ก่อน ไม่อย่างนั้น endpoint ตอบ 401 ทุกครั้ง (fail-closed) และไม่ต้องรัน `npm run db:seed -- --refresh-schedule` ด้วยมือทุก ~6 วันอีกต่อไป (รันมือได้เมื่อต้องการเลื่อนทันที)
 
 | Environment variable | ที่มา | หมายเหตุ |
 | --- | --- | --- |
 | `DATABASE_URL` | Neon integration | ใช้ `POSTGRES_URL` แทนได้ถ้าไม่มี; `pglite:<dir>` สำหรับเครื่อง dev |
 | `BLOB_READ_WRITE_TOKEN` | Blob integration | ไม่มีบน Vercel → อัปโหลดภาพตอบ 503 |
+| `CRON_SECRET` | ตั้งเอง (v2.2) | Bearer token ของ `GET /api/cron/refresh-schedule` — สุ่มสตริงยาว; ไม่ตั้ง = cron ตอบ 401 |
+| `ADMIN_PASSWORD` / `DEMO_PASSWORD` | ตั้งเอง (v2.2) | seed เส้นทาง non-pglite ใช้แทน admin123/demo123; ไม่ตั้ง = สุ่ม 16 ตัวอักษรแล้วพิมพ์ console ครั้งเดียว |
 | `COOKIE_INSECURE` | ตั้งเองเฉพาะเครื่อง dev | `1` = cookie ไม่มี `Secure` (http://localhost) |
 | `PORT` | ไม่บังคับ | พอร์ตของ `npm run dev` |
+
+### สถานะ deploy จริง (19 ตุลาคม 2026)
+
+- โปรเจกต์ Vercel `maison-cinema` เชื่อม GitHub `Koorawut/Cinema_Project` (branch `main`); push แล้ว Vercel build เอง
+- Neon เชื่อมผ่าน Vercel integration (`DATABASE_URL` ใน Preview + Production); migrate + seed ทำจากเครื่องด้วย `.env.local` (ถูก gitignore ด้วยกฎ `.env.*`) — **ห้าม commit ไฟล์นี้ และควร reset รหัสผ่านฐานข้อมูลที่ Neon console หากเคยวางลงแชตหรือที่สาธารณะ**
+- ยังไม่ได้ตั้ง `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob) → แนบภาพบน production ตอบ 503
+- Vercel Authentication เปิดอยู่: ทดสอบผ่าน `vercel curl <url>` ได้; ถ้าต้องการให้ทุกคนเปิดเว็บ ปิดที่ Settings → Deployment Protection
+- หลัง deploy ต้อง: เปลี่ยนรหัส `admin` (ปิด P-14 ให้สมบูรณ์ — ผ่านหน้า account หรือ re-seed ด้วย `ADMIN_PASSWORD`), ตั้ง `CRON_SECRET` ให้ cron เลื่อนตารางฉายทำงาน (v2.2), ทดสอบ smoke (สมัคร, จอง, จองซ้ำสองแท็บต้องได้ 409, admin)

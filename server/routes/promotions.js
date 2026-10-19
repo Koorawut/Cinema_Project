@@ -51,9 +51,32 @@ async function detail(ctx) {
   return p;
 }
 
+/* P-17: จำกัดอัตราการเรียก redeem ต่อ IP — ใช้ตาราง login_attempts แบบเดียวกับ login
+   แต่ identifier แยกเป็น rl:redeem|{ip} และไม่ใช้/ไม่ลบแถวของ login เด็ดขาด
+   (นำหน้าด้วย rl: เพราะ username มี : ไม่ได้ จึงชนกับ identifier ของ login ไม่ได้ — A4 LOW-1)
+   นับเฉพาะ 15 นาทีล่าสุด ไม่เกิน 20 ครั้ง (ทุกคำขอนับเท่ากัน สำเร็จไม่รีเซ็ต) */
+const REDEEM_WINDOW_MIN = 15;
+const REDEEM_MAX = 20;
+function redeemKey(ip) { return 'rl:redeem|' + ip; }
+async function assertRedeemAllowed(ip) {
+  const n = await db.one(
+    'SELECT count(*)::int AS n FROM login_attempts WHERE identifier = $1 AND at > now() - make_interval(mins => $2)',
+    [redeemKey(ip), REDEEM_WINDOW_MIN]);
+  if (n && n.n >= REDEEM_MAX) {
+    throw new ApiError(429, 'ส่งรหัสบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
+  }
+}
+async function recordRedeemAttempt(ip) {
+  await db.query('INSERT INTO login_attempts (identifier) VALUES ($1)', [redeemKey(ip)]);
+  // เก็บ log 1 วันเท่ากับ login — ลบเฉพาะแถวเก่า ไม่แตะ identifier อื่น
+  await db.query("DELETE FROM login_attempts WHERE at < now() - interval '1 day'");
+}
+
 /* POST /api/promotions/redeem { code, showtimeId?, seatIds? }
    ส่งรอบ+ที่นั่งมาด้วย → คืน quote (ตรวจเงื่อนไขและคำนวณราคา) ไม่ส่ง → ตรวจแค่ว่ารหัสมีจริง */
 async function redeem(ctx) {
+  await assertRedeemAllowed(ctx.ip || ''); // P-17: กันสแปมเดารหัสต่อ IP
+  await recordRedeemAttempt(ctx.ip || '');
   const promotion = await findByCode(ctx.body.code);
   if (!promotion) { throw new ApiError(404, 'ไม่พบรหัสโปรโมชันนี้ กรุณาตรวจสอบแล้วลองอีกครั้ง'); }
   if (!ctx.body.showtimeId) {

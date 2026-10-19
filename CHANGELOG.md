@@ -2,6 +2,39 @@
 
 รูปแบบอ้างอิง [Keep a Changelog](https://keepachangelog.com/th-TH/1.1.0/) เวอร์ชันตาม [Semantic Versioning](https://semver.org/lang/th/)
 
+## [2.2.0] — 19 ตุลาคม 2026
+
+รอบแก้ปัญหาจากการอ่านโค้ดหลัง deploy (P-12, P-15, P-16, P-17, P-14 บางส่วน) + cron เลื่อนตารางฉายอัตโนมัติ — สรุปผล: T1 49/49, unit 19/19, T5 HTTP 30/30, client parity 3/3, รวม 101/101 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 7)
+
+### เพิ่ม (Added)
+- `server/schedule-refresh.js` — ย้ายตรรกะเลื่อนตารางฉายออกจาก `seed.js`: เลื่อนเฉพาะหนัง seed ที่ `date_end` ผ่านวันนี้, ตรวจชนโรง, idempotent, ไม่แตะ `bookings`/หนังที่ admin เพิ่มเอง พร้อมรายงาน moved/skipped
+- route `GET /api/cron/refresh-schedule` ใน `api/index.js` — ยืนยันด้วย Bearer `CRON_SECRET` เทียบแบบ timing-safe (sha256 + `timingSafeEqual`, fail-closed 401); `vercel.json` เพิ่ม `"crons"` รายวัน `0 17 * * *` (00:00 เวลาไทย) — ไม่ต้องรัน `--refresh-schedule` มือทุก ~6 วันอีกต่อไป
+- `server/time.js` — injectable clock: `setNow()` สำหรับเทสต์ + env `MAISON_NOW` (มี guard ไม่ใช้เมื่อ `VERCEL_ENV=production`) และ `isPast()` ใช้กันจองรอบที่เริ่มไปแล้ว
+- เคสทดสอบใหม่ 11+ เคส: P-15 (T1 2 + T5 2), P-16 (T5 1), P-17 (T5 1), P-14 (T5 1), cron (T5 1), P-12 (smoke 1 ขั้น)
+
+### เปลี่ยนแปลง (Changed)
+- **P-15** — `POST /api/bookings` ตรวจรอบที่ `startsAt` ผ่านแล้ว → 422 "รอบนี้เริ่มฉายไปแล้ว..." (`server/routes/bookings.js`); `api-mock.js` ทำเหมือนกันเพื่อ parity
+- **P-16** — `server/routes/admin.js` เพิ่ม `assertNoAffectedBookings`: แก้โรง/หด `date_end`/ตัดช่วงเวลา/ตั้ง `nowShowing=false` ของหนังที่มี booking รอบอนาคต → 409 "แก้ตารางไม่ได้...มีการจองอยู่ใน N รอบ"; แก้ชื่อ/ราคา/ยืดวันฉาย/booking ที่เป็นอดีตแล้วยังแก้ได้
+- **P-12** — `checkout.html` แยกข้อความ "ไม่พบรหัสที่นั่งนี้ในรอบฉาย" (unknown id) ออกจาก "ที่นั่งที่เลือกถูกจองไปแล้ว" (booked); กรณี mixed แสดงทั้งสอง และแสดง id ผ่าน `textContent`
+- `scripts/seed.js` — pglite คง `admin123`/`demo123`; เส้นทาง non-pglite อ่าน `ADMIN_PASSWORD`/`DEMO_PASSWORD` จาก env หรือสุ่ม 16 ตัวอักษร (`crypto.randomBytes`) พิมพ์ครั้งเดียวพร้อมคำเตือน; README ระบุว่าบัญชีสาธิตใช้ได้เฉพาะ dev
+- `seed --refresh-schedule` เปลี่ยนพฤติกรรม: เดิมเลื่อนทุกเรื่องโดยไม่ตรวจ — ใหม่เลื่อนเฉพาะเรื่องที่หมดวัน + ตรวจชนโรง + รายงาน skipped
+- เลขเวอร์ชันเป็น "เวอร์ชัน 2.2 (v2.2)" (`VERSION` 2.2.0 ใน app.js, eyebrow หน้าแรก, footer)
+
+### ความปลอดภัย (Security)
+- **P-17** — `POST /api/promotions/redeem` จำกัด 20 ครั้ง/15 นาทีต่อ IP ผ่านตาราง `login_attempts` (identifier `rl:redeem|{ip}`, prefix `rl:` กันชนกับ bucket ของ login) → 429 "ส่งรหัสบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง"; login บัญชีจริงยังทำงาน (แยก bucket กัน)
+- cron endpoint ตรวจ Bearer secret ทุกคำขอ — ไม่มี/ผิด = 401
+
+## Deploy production — 19 ตุลาคม 2026 (ไม่เปลี่ยนเลขเวอร์ชัน คงเป็น 2.1.0)
+
+ขึ้นระบบจริงครั้งแรกบน Vercel + Neon Postgres — ไม่มีการแก้โค้ดแอป
+
+- รัน `npm run db:migrate` และ `npm run db:seed -- --reset` กับ Neon สำเร็จ: users 50, movies 11, bookings 3,299, seats 8,073 (วันที่ seed 2026-10-19)
+- push `main` (`9c9e906`) → Vercel build deployment `maison-cinema-g6rpa9ndm` สถานะ Ready (11 วินาที)
+- ตรวจ API บน deployment จริง: `GET /api/config` ตอบ 200 และ `GET /api/movies` ตอบหนังที่กำลังฉาย 8 เรื่องจาก Neon (อีก 3 เรื่องเป็น "เร็ว ๆ นี้")
+- ตัวแปร `DATABASE_URL` ตั้งผ่าน Neon integration ใน Vercel (Preview + Production); **ยังไม่ได้ตั้ง** `BLOB_READ_WRITE_TOKEN` จึงแนบภาพโปสเตอร์/คูปองบน production ไม่ได้ (ตอบ 503)
+- Vercel Authentication ยังเปิดอยู่ ผู้ที่ไม่ได้ล็อกอิน Vercel เปิดเว็บไม่ได้จนกว่าจะปิดที่ Settings → Deployment Protection
+- ผลตรวจโค้ด backend รอบนี้ (อ่านโค้ด ยังไม่ได้ทดสอบยืนยัน) บันทึกเป็น P-14 ถึง P-17 ใน `cinema-issues.md`
+
 ## [2.1.0] — 15 ตุลาคม 2026
 
 ปิด P-08: หน้า checkout ใส่โค้ดส่วนลดแล้วเห็นราคาจริง — สรุปผล: T1 47/47, unit 19/19, T5 HTTP 24/24, client parity 3/3, smoke เบราว์เซอร์ 21/21 (ดู `tests/test-log.md` รอบที่ 5)

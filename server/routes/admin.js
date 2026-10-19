@@ -10,7 +10,7 @@ const S = require('../schedule');
 const M = require('../movies');
 const images = require('../images');
 const { ApiError } = require('../http');
-const { todayISO, toBangkokISO } = require('../time');
+const { todayISO, toBangkokISO, now } = require('../time');
 
 /* ---------- ภาพยนตร์ ---------- */
 
@@ -30,6 +30,32 @@ async function assertNoClash(sched, movieId) {
 async function assertTitleFree(title, movieId) {
   if (await db.one('SELECT 1 FROM movies WHERE lower(title) = lower($1) AND id <> $2', [title, movieId || ''])) {
     throw new ApiError(409, 'มีภาพยนตร์ชื่อนี้อยู่แล้ว');
+  }
+}
+
+/* P-16: กันแก้โรง/ตารางฉายที่ทำให้รอบอนาคตที่มีคนจองหายไปหรือย้ายโรง
+   ดูการจองของหนังนี้ที่ starts_at ยังไม่ถึง (รอบอดีตไม่กัน) แล้วตรวจว่า
+   รอบเหล่านั้นยังอยู่ในตารางใหม่ (วันอยู่ในช่วง + ช่วงเวลายังมี + โรงไม่เปลี่ยน)
+   เปลี่ยนเป็นไม่ฉายแล้ว (nowShowing=false) ถือเป็นการกระทบเช่นกัน */
+async function assertNoAffectedBookings(current, sched) {
+  const rows = await db.query(
+    'SELECT DISTINCT b.showtime_id FROM bookings b WHERE b.movie_id = $1 AND b.starts_at > $2',
+    [current.id, now().toISOString()]);
+  if (!rows.length) { return; }
+  const hallChanged = !!sched.hallId && sched.hallId !== current.hallId;
+  const dropped = [];
+  rows.forEach((r) => {
+    const p = S.parseShowtimeId(r.showtime_id);
+    if (!p) { return; }
+    const removed = !sched.hallId || hallChanged || p.date < sched.dateStart || p.date > sched.dateEnd ||
+      sched.periods.indexOf(p.period) === -1;
+    if (removed) { dropped.push(p.date + ' รอบ' + (S.periodByKey(p.period) || { label: p.period }).label); }
+  });
+  if (dropped.length) {
+    // rows นับ DISTINCT showtime_id — จำนวน "รอบ" ที่มีการจอง ไม่ใช่จำนวนการจอง (L-2)
+    throw new ApiError(409, 'แก้ตารางไม่ได้: มีการจองอยู่ใน ' + rows.length + ' รอบที่ยังไม่ถึงเวลาฉาย (' +
+      dropped.slice(0, 5).join(', ') + (dropped.length > 5 ? ' และอีก ' + (dropped.length - 5) + ' รอบ' : '') +
+      ') กรุณายกเลิกการจองหรือเลือกช่วงวัน/ช่วงเวลา/โรงที่ครอบรอบเดิม');
   }
 }
 
@@ -104,6 +130,7 @@ async function updateMovie(ctx) {
   const showing = !!merged.nowShowing;
   const sched = S.normalizeSchedule(Object.assign({}, merged, { nowShowing: showing }));
   if (f.title.toLowerCase() !== current.title.toLowerCase()) { await assertTitleFree(f.title, current.id); }
+  await assertNoAffectedBookings(current, sched); // P-16: ก่อนตรวจชนรอบ
   await assertNoClash(sched, current.id);
   const poster = data.poster !== undefined ? await images.resolveImage(data.poster, current.poster, 'posters') : current.poster;
   let r;

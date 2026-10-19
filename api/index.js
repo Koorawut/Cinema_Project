@@ -5,12 +5,33 @@
    ============================================================= */
 'use strict';
 
+const crypto = require('crypto');
 const { ApiError, sendJson, sendError, readBody } = require('../server/http');
 const authR = require('../server/routes/auth');
 const catalog = require('../server/routes/catalog');
 const bookings = require('../server/routes/bookings');
 const promos = require('../server/routes/promotions');
 const admin = require('../server/routes/admin');
+const { refreshSchedule } = require('../server/schedule-refresh');
+
+/* GET /api/cron/refresh-schedule — Vercel Cron เรียกรายวัน (vercel.json: 0 17 * * *)
+   ต้องส่ง Authorization: Bearer $CRON_SECRET (cron ขอ Vercel แนบให้อัตโนมัติ)
+   401 เมื่อไม่ได้ตั้ง CRON_SECRET หรือค่าไม่ตรง — idempotent รันซ้ำได้
+   เทียบ secret แบบ timing-safe: sha256 ทั้งสองฝั่งก่อน timingSafeEqual
+   (hash ทำให้ความยาวเท่ากันเสมอ จึงไม่ throw จาก length mismatch — A4 LOW-4) */
+function secureEqualStr(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+async function cronRefreshSchedule(ctx) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !secureEqualStr(ctx.req.headers.authorization || '', 'Bearer ' + secret)) {
+    throw new ApiError(401, 'ไม่ได้รับอนุญาต');
+  }
+  const r = await refreshSchedule();
+  return { ok: true, moved: r.moved.length, skipped: r.skipped.length, detail: r };
+}
 
 /* [method, pattern, handler] — :name จับ 1 segment */
 const ROUTES = [
@@ -48,7 +69,9 @@ const ROUTES = [
   ['PATCH', '/api/admin/users/:id/role', admin.setRole],
   ['DELETE', '/api/admin/users/:id', admin.deleteUser],
 
-  ['GET', '/api/admin/stats', admin.stats]
+  ['GET', '/api/admin/stats', admin.stats],
+
+  ['GET', '/api/cron/refresh-schedule', cronRefreshSchedule]
 ].map(([method, pattern, handler]) => {
   const names = [];
   const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, n) => { names.push(n); return '([^/]+)'; }) + '/?$');

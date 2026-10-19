@@ -57,4 +57,27 @@ function dateOnly(value) {
   return String(value).slice(0, 10);
 }
 
-module.exports = { TZ, bangkokDate, addDays, todayISO, isISODate, startsAtISO, toBangkokISO, dateOnly };
+/* เวลาปัจจุบัน (ฉีดได้เพื่อทดสอบรอบที่เริ่มไปแล้ว — P-15):
+   ลำดับ: setNow() ที่เทสต์ตั้ง → env MAISON_NOW (ยกเว้น production) → เวลาจริงของเครื่อง
+   setNow() ใช้ได้ทุกสภาพแวดล้อมเพราะเทสต์ require โมดูลตรงๆ ส่วน env ปิดบน production
+   เพื่อกันคนตั้ง MAISON_NOW แล้วเวลาระบบเพี้ยนจริง (A4 LOW-3) */
+let testNow = null;
+function setNow(value) { testNow = value == null ? null : new Date(value); }
+function now() {
+  if (testNow) { return new Date(testNow.getTime()); }
+  const env = process.env.VERCEL_ENV === 'production' ? null : process.env.MAISON_NOW;
+  if (env) {
+    const d = new Date(env);
+    if (!isNaN(d)) { return d; }
+  }
+  return new Date();
+}
+
+/* รอบเริ่มฉายไปแล้วหรือยัง — startsAt รูปแบบ 2026-10-14T19:00:00+07:00 (เทียบเป็น instant จึงไม่ขึ้นกับเขตเวลา) */
+function isPast(startsAt) {
+  const t = Date.parse(startsAt);
+  return !isNaN(t) && now().getTime() >= t;
+}
+
+module.exports = { TZ, bangkokDate, addDays, todayISO, isISODate, startsAtISO, toBangkokISO, dateOnly,
+  setNow, now, isPast };

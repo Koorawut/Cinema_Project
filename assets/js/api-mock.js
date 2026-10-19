@@ -148,6 +148,12 @@
     return isoDateStr(d);
   }
   function nowISO() { return new Date().toISOString(); }
+  /* รอบเริ่มฉายไปแล้วหรือยัง (parity กับ server/time.js isPast — P-15)
+     startsAt อยู่ในรูปแบบ +07:00 เทียบเป็น instant จึงถูกต้องทุกเขตเวลา */
+  function isPast(startsAt) {
+    var t = Date.parse(startsAt);
+    return !isNaN(t) && Date.now() >= t;
+  }
   function isoDateStr(d) {
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -688,6 +694,7 @@
         var u = requireUser();
         var st = getShowtime(data.showtimeId);
         if (!st) { throw ApiError(404, 'ไม่พบรอบฉายนี้'); }
+        if (isPast(st.startsAt)) { throw ApiError(422, 'รอบนี้เริ่มฉายไปแล้ว ไม่สามารถจองได้ กรุณาเลือกรอบอื่น'); }
         if (st.status === 'full') { throw ApiError(409, 'รอบฉายนี้เต็มแล้ว กรุณาเลือกรอบอื่น'); }
         var occupied = bookedSeatIds(data.showtimeId, hallById(st.hallId));
         var wanted = Array.isArray(data.seatIds) ? data.seatIds : [];
