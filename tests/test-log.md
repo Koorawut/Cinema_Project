@@ -459,3 +459,33 @@
 - rollback target หากจำเป็น: deployment `7l15vd2oq` (v2.2)
 - `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่ม — บันทึกผลเป็นหลักฐานยืนยันบน production ของรายการที่ปิดไปแล้วในรอบที่ 9
 - ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / ปิดแล้วทั้งหมดของรอบนี้ / คงค้าง P-01, P-04, P-07
+
+---
+
+## รอบที่ 11 — 20 ตุลาคม 2026 · ตรวจ Blob บน production (แนบภาพใช้ได้จริง)
+
+ไม่มีการแก้โค้ด ไม่ได้รันชุดอัตโนมัติ (`npm test` / `npm run test:smoke`) ในรอบนี้ — ตรวจหลังแก้ปัญหา Blob บน production (แก้ที่ config/deploy) ด้วย **curl ตรงกับ deployment production** `https://maison-cinema-l2dn7wn7t-ai-test-project1.vercel.app` (deployment `l2dn7wn7t`, Ready; ผู้ใช้ deploy เองด้วย `vercel deploy --prod`)
+
+### ปัญหาที่แก้ก่อนรอบตรวจ (config/deploy ไม่แตะโค้ด)
+
+- **อาการ:** แนบภาพบน production ตอบ 503 "ยังไม่ได้ตั้งค่าที่เก็บไฟล์ภาพ (BLOB_READ_WRITE_TOKEN)" แม้ตั้ง env แล้ว
+- **สาเหตุ 2 ชั้น:** (1) Blob store แรก (`store_X5Atio0gYC07AfFQ`) สร้างเป็นประเภท **Private** ขัดกับ `server/images.js` ที่อัปโหลดด้วย `access: 'public'` (ภาพต้องเปิดให้ทุกคนดูได้) — ทดสอบตรงกับ Vercel Blob ได้ error "Cannot use public access on a private store"; (2) token ที่ใส่ใน env ชี้ไป store เก่า — หลังลบ store เก่าและสร้างใหม่ token เก่าตาย ("This store does not exist")
+- **การแก้:** ลบ store เก่า (ไม่มีภาพค้างเพราะอัปโหลดไม่เคยสำเร็จ) → สร้าง store ใหม่ `maison-images` แบบ **Public** → connect กับโปรเจกต์ → ลบ `BLOB_READ_WRITE_TOKEN` เก่าและใส่ของใหม่ทั้ง Production + Preview (Non-sensitive) → deploy production ใหม่
+
+### ผลรายเคส
+
+| เคส | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| admin login | 200 | ผ่าน |
+| สร้างคูปองพร้อมภาพ | `POST /api/admin/promotions` พร้อมภาพ PNG เล็ก (คูปอง `QABLOB2`) → 201 และ image เป็น Blob URL จริง (`https://4kyjpqkyrtcertzw.public.blob.vercel-storage.com/promotions/image-SjHBTn00HLZrm8jVJyT5GqfSxGHu4W.png`) | ผ่าน |
+| GET ภาพจาก URL สาธารณะ | ไม่ login → 200 `image/png` 70 ไบต์ | ผ่าน |
+| ล้างข้อมูลทดสอบ | ลบคูปองทดสอบ → 200 | ผ่าน |
+| DB กลับสถานะเดิม | promotions เหลือคูปอง seed 3 ใบตามเดิม (ไม่มี `QABLOB*` ตกค้าง) | ผ่าน |
+
+### สรุปรอบ
+
+- ตรวจ Blob บน production ผ่าน **5/5** — **ปิดปัญหา Blob บน production แล้ว: แนบภาพใช้ได้จริง** (P-20 ปิด)
+- rollback target หากจำเป็น: deployment `gu8a58vn5` (v2.3 เดิม), `7l15vd2oq` (v2.2), `g6rpa9ndm` (v2.1)
+- **ความปลอดภัย (ยอมรับความเสี่ยง):** ค่า Blob token เคยถูกวางแสดงในแชตและ terminal output ระหว่างแก้ปัญหา (token ของ store เก่าถูกลบไปแล้วจึงใช้ไม่ได้ แต่ token ปัจจุบันของ store ใหม่ก็เคยแสดงใน terminal) — ผู้ใช้ตัดสินใจยอมรับความเสี่ยงเพราะเป็นโปรเจกต์เรียน ไม่มีผู้ใช้จริง (เหตุผลเดียวกับ P-14); หากวันหน้าเปิดใช้จริง ให้สร้าง store/token ใหม่
+- `cinema-issues.md`: เพิ่ม P-20 (ปิด) — ไม่มี P-id เดิมเกี่ยวกับ Blob/แนบภาพ (เดิมบันทึกเป็นข้อจำกัดตอน deploy รอบที่ 6 เท่านั้น)
+- ไฟล์ปัญหา: เพิ่ม P-20 (ปิด) / คงค้าง P-01, P-04, P-07

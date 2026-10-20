@@ -28,6 +28,10 @@
 - merge v2.3 ขึ้น `main` (`3a6378b`) → Vercel build deployment `maison-cinema-gu8a58vn5-ai-test-project1.vercel.app` (deployment `gu8a58vn5`, Ready)
 - smoke บน production ผ่าน 8/8 กลุ่มเคส (รอบที่ 10 ใน `tests/test-log.md`): P-18, P-19, กติกาคูปอง, pagination, cron fail-closed, สมัคร/login/`me`, จอง + จองซ้ำ 409; rollback target หากจำเป็น: deployment `7l15vd2oq` (v2.2)
 
+## แก้ config deploy Blob — 20 ตุลาคม 2026 (ไม่เปลี่ยนเลขเวอร์ชัน คงเป็น 2.3.0)
+
+- แก้ config deploy: Blob store ประเภท **Public** + token ใหม่ — แนบภาพบน production ใช้ได้จริง (รอบที่ 11): สร้าง store `maison-images` แบบ Public แทน store เดิมที่เป็น Private (อัปโหลดไม่ได้) พร้อมเปลี่ยน `BLOB_READ_WRITE_TOKEN` ทั้ง Production + Preview แล้ว deploy ใหม่ (`l2dn7wn7t`) — ตรวจบน production ผ่าน 5/5 (P-20 ปิด; ดู `cinema-issues.md` และ `tests/test-log.md` รอบที่ 11)
+
 ## [2.2.0] — 19 ตุลาคม 2026
 
 รอบแก้ปัญหาจากการอ่านโค้ดหลัง deploy (P-12, P-15, P-16, P-17, P-14 บางส่วน) + cron เลื่อนตารางฉายอัตโนมัติ — สรุปผล: T1 49/49, unit 19/19, T5 HTTP 30/30, client parity 3/3, รวม 101/101 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 7)
