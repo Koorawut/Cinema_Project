@@ -107,8 +107,8 @@ async function main() {
   await step('index.html (ยังไม่ login)', async () => {
     await open('index.html'); await settle();
     const t = await evaluate('document.body.innerText');
-    if (!/เวอร์ชัน 2\.3/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.3'); }
-    return 'eyebrow+footer v2.3';
+    if (!/เวอร์ชัน 2\.4/.test(t)) { throw new Error('ไม่พบเวอร์ชัน 2.4'); }
+    return 'eyebrow+footer v2.4';
   });
   await step('movies.html + ค้นหา', async () => {
     await open('movies.html'); await settle();
@@ -129,7 +129,36 @@ async function main() {
     if (!/login\.html/.test(href)) { throw new Error('ไม่ redirect ไป login: ' + href); }
     return 'redirect ไป login';
   });
-  await step('register.html', async () => { await open('register.html'); await settle(); });
+  await step('register.html — รหัสผ่านไม่ตรงกัน ต้องไม่ถึง API (Rubric 3 Big Bonus)', async () => {
+    await open('register.html'); await settle();
+    // ห่อ MAISON_API.register ในหน้านับครั้ง — client-side validation ต้องบล็อกก่อนยิงคำขอ
+    // และหยุดการพาไป login.html หลังสมัครสำเร็จ (MAISON.go) เพื่อคงอยู่หน้านี้ต่อ —
+    // ไม่ให้ navigation กลางคันไปรบกวนขั้นทดสอบถัดไป
+    await evaluate('(function(){var o=MAISON_API.register;window.__regCalls=0;' +
+      'MAISON_API.register=function(p){window.__regCalls++;return o(p)};MAISON.go=function(){};})()');
+    // กรอกฟอร์มครบทุกช่องถูกต้อง ยกเว้นยืนยันรหัสผ่านไม่ตรงกับช่องรหัสผ่าน
+    // (built-in required/pattern ผ่านทั้งหมด — จับได้ด้วย JS ของหน้าเท่านั้น)
+    const u = 'smokereg' + Date.now().toString(36);
+    await evaluate('(function(){document.getElementById("username").value=' + JSON.stringify(u) + ';' +
+      'document.getElementById("email").value=' + JSON.stringify(u + '@maison.test') + ';' +
+      'document.getElementById("password").value="passw0rd123";' +
+      'document.getElementById("confirmPassword").value="passw0rd999";' +
+      'document.getElementById("register-form").requestSubmit()})()');
+    await waitFor('!document.getElementById("form-error").hidden');
+    const msg = await evaluate('document.getElementById("form-error").textContent');
+    if (!/ไม่ตรงกัน/.test(msg)) { throw new Error('ต้องแสดงข้อความรหัสผ่านไม่ตรงกัน ได้: ' + msg); }
+    if (await evaluate('window.__regCalls') !== 0) { throw new Error('รหัสผ่านไม่ตรงกันแต่ยังส่งถึง API'); }
+    // แก้ยืนยันให้ตรง → ต้องส่งถึง API จริง (guard ไม่บล็อกเกินจำเป็น):
+    // สำเร็จ = ปุ่มยัง disabled ค้าง "กำลังสร้างบัญชี..." + ไม่มี error ใหม่ (สาขา catch จะปลดปุ่มกลับ)
+    await evaluate('document.getElementById("confirmPassword").value="passw0rd123";document.getElementById("register-form").requestSubmit()');
+    await waitFor('window.__regCalls === 1', 8000);
+    await sleep(800);
+    const errAfter = await evaluate('!document.getElementById("form-error").hidden');
+    const btnAfter = await evaluate('document.getElementById("submit-btn").disabled');
+    if (errAfter) { throw new Error('สมัครด้วยรหัสที่ตรงกันต้องสำเร็จ แต่เจอ error: ' + (await evaluate('document.getElementById("form-error").textContent'))); }
+    if (!btnAfter) { throw new Error('ปุ่มต้องยัง disabled ในสาขาสำเร็จ (สาขา fail จะปลดกลับ)'); }
+    return 'บล็อกก่อนถึง API (0 คำขอ) + กรอกถูกแล้วส่งจริง 1 ครั้ง สำเร็จ';
+  });
 
   await step('login ผ่านฟอร์ม (demo)', async () => {
     await open('login.html'); await settle();

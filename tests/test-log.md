@@ -489,3 +489,64 @@
 - **ความปลอดภัย (ยอมรับความเสี่ยง):** ค่า Blob token เคยถูกวางแสดงในแชตและ terminal output ระหว่างแก้ปัญหา (token ของ store เก่าถูกลบไปแล้วจึงใช้ไม่ได้ แต่ token ปัจจุบันของ store ใหม่ก็เคยแสดงใน terminal) — ผู้ใช้ตัดสินใจยอมรับความเสี่ยงเพราะเป็นโปรเจกต์เรียน ไม่มีผู้ใช้จริง (เหตุผลเดียวกับ P-14); หากวันหน้าเปิดใช้จริง ให้สร้าง store/token ใหม่
 - `cinema-issues.md`: เพิ่ม P-20 (ปิด) — ไม่มี P-id เดิมเกี่ยวกับ Blob/แนบภาพ (เดิมบันทึกเป็นข้อจำกัดตอน deploy รอบที่ 6 เท่านั้น)
 - ไฟล์ปัญหา: เพิ่ม P-20 (ปิด) / คงค้าง P-01, P-04, P-07
+
+---
+
+## รอบที่ 12 — 5 พฤศจิกายน 2026 · v2.4.0 (JS validation + window.onload + ซ่อน element ตาม viewport)
+
+ตรวจการเปลี่ยนแปลง v2.4 จากรอบ A1 (Big Bonus ข้อ 2/3/5/6): ตรวจรหัสผ่านไม่ตรงกันด้วย JS ก่อนส่ง (register.html + account.html), ครอบส่วน "เพิ่ม element เมื่อ load" ของหน้าแรกด้วย `window.onload` ตรงถ้อยคำเกณฑ์ (renderLists + readyState guard), ซ่อน `.hero-meta` / `.coming-card .small.muted` บนจอแคบ (≤720px), เลขเวอร์ชัน 2.4 ทุกจุด
+
+### สภาพแวดล้อม / วิธีรัน
+
+- เช่นรอบที่ 9: **PGlite** ในเครื่อง (`DATABASE_URL=pglite:./.pglite` seed `--reset` ก่อน smoke; T5/client parity ใช้ `.pglite-test*` ของตัวเอง) · `npm test` (T1 + unit + T5 + client parity) · `npm run test:smoke`; การทดสอบ onload เพิ่มเติมใช้สคริปต์ CDP ชั่วคราว (temp นอก repo) แบบเดียวกับ smoke
+
+### ตารางผล
+
+| ชุด | ผล |
+| --- | --- |
+| T1 mock (`tests/run-tests.js`) | **52/52** |
+| Unit (`time` + `pricing`) | **19/19** |
+| T5 HTTP (`tests/api-http.test.js`) | **34/34** |
+| Client parity (`tests/api-client.test.js`) | **3/3** |
+| **รวม `npm test`** | **108 ผ่าน / 0 fail / 108** (T1 52 + node --test 56: unit 19 + T5 34 + client parity 3) |
+| Smoke เบราว์เซอร์ (`tests/smoke-browser.js`) | **22/22** (เดิม 21: เคส register.html ธรรมดาแทนที่ด้วยเคส password-mismatch ใหม่ + ปรับ regex เวอร์ชัน 2.3→2.4) |
+| ตรวจ window.onload เพิ่มเติม (สคริปต์ CDP ชั่วคราว) | **10/10 ที่ตั้งใจ** (1 เคส coming-list รายงาน FAIL เพราะสมมติฐานของเคสเองผิด — คาด 0 เรื่อง coming แต่ seed ปัจจุบันมี 3; ค่าที่วัดได้ 3 คงที่ทั้งสองการโหลด = ยืนยันรันครั้งเดียว — สรุปเป็น "ผ่าน" หลังแก้สมมติฐาน) |
+
+### เคสใหม่
+
+- **Password mismatch (smoke 1 เคส):** register.html กรอกฟอร์มครบถูกทุกช่อง (ผ่าน built-in required/pattern ทั้งหมด) ยกเว้นยืนยันรหัสผ่านไม่ตรง → ต้องแสดงแบนเนอร์ "รหัสผ่านทั้งสองช่องไม่ตรงกัน" และ **ไม่ยิงถึง API เลย** (นับด้วยการห่อ `MAISON_API.register` ในหน้า = 0 ครั้ง) → แก้ยืนยันให้ตรงแล้วส่งใหม่ = ยิงจริง 1 ครั้งและสมัครสำเร็จ (ปุ่ม disabled ค้างในสาขาสำเร็จ ไม่มี error ใหม่) — เคสนี้จับกรณีที่ browser built-in ตรวจไม่ได้ตามที่ Rubric 3 Big Bonus ต้องการ
+- **การตรวจ account.html (static):** ยืนยันด้วยการ parse inline script ว่าลำดับใน submit handler ถูกต้องทั้งสองหน้า — mismatch guard (`newPassword !== confirmNewPassword`) มาก่อน `checkValidity()` มาก่อนการเรียก `MAISON_API.changePassword(...)` / `MAISON_API.register(...)`
+
+### การตรวจ window.onload (ไม่ double-fire + ไม่พังการโหลดตรง ๆ)
+
+- **เช็คโค้ด:** สาขา `readyState === 'complete'` (เรียกทันที) กับสาขา `window.onload = renderLists` เป็น if/else เดียวกันจึงไม่ทั้งคู่; `window.onload` ถูก assign ครั้งเดียวทั้งไฟล์
+- **grep ทั้ง repo:** ไม่มี `window.onload` / `addEventListener('load')` / `<body onload>` อื่นเลย (ตัวที่เจอเป็น `xhr.onload` / `reader.onload` ของ XHR/FileReader — คนละ object)
+- **dynamic ใน headless Edge:** โหลด index.html จริง → inline script ท้าย body เจอ readyState ยังไม่ complete จึงเดินสาขา `window.onload` (ตรวจ `window.onload.toString()` = renderLists) → หลัง load + `MAISON_API.ready` รายการทั้งสี่ render ครบ: hero-meta 3 ช่อง, top5 5 การ์ด, promo 3 ใบ, coming 3 เรื่อง — **ซ้ำเป็น 2 เท่าไม่มี** (ถ้า double-fire จะเป็น 6/10/6) และ reload ก็ได้ค่าเดิมทุกครั้ง; สาขา readyState=complete ยืนยันว่าเรียกทันทีไม่รอ event ที่ผ่านมาแล้ว
+- **จาก smoke:** ขั้น index.html ผ่าน (eyebrow+footer v2.4) และไม่มี console error ใด ๆ บนหน้าแรก — top5/promo/coming/hero-meta ยัง populate ปกติหลังการเปลี่ยน
+
+### การตรวจอื่น
+
+- **CSS 720px:** `.hero-meta { display: none; }` / `.coming-card .small.muted { display: none; }` อยู่ในบล็อก `@media (max-width: 720px)` ที่มีอยู่เดิม (บรรทัด 687) วงเล็บสมดุลทั้งไฟล์; นอก media query มี `.hero-meta { display: flex }` ปกติ (บรรทัด 302) จึงเดสก์ท็อปยังแสดง — การเปลี่ยนเป็น `display:none` บน mobile ไม่กระทบ element อื่นในบล็อกเดียวกัน (ที่เหลือเป็น grid/column ปรับ layout ตามเดิม)
+- **เวอร์ชัน:** `VERSION='2.4.0'` ใน app.js + footer badge + eyebrow index.html + package.json/package-lock/README — smoke ยืนยันผ่าน regex 2\.4
+
+### บัคที่พบ
+
+- ไม่พบบัคของระบบ — ผล fail ชั่วคราว 2 ครั้งระหว่างรอบเป็นของเคสทดสอบใหม่เอง: (1) รุ่นแรกของเคส register ปล่อยให้หน้า redirect ไป login.html กลางคันทำให้ขั้นถัดไป (seats/checkout 3 ขั้น) eval ชน navigation — แก้ด้วยการ stub `MAISON.go` ในหน้าให้อยู่ที่เดิม; (2) สคริปต์ตรวจ onload คาด coming=0 แต่ seed มี 3 — ค่าจริงคงที่ 3 ทุกการโหลดยืนยัน single-fire อยู่ดี
+- ข้อสังเกตเชิงพฤติกรรม (ไม่ใช่บัค): สาขาสำเร็จของ register.html ทิ้งปุ่ม disabled "กำลังสร้างบัญชี..." ค้างไว้ 500ms ก่อนพาไป login.html — เป็นดีไซน์เดิมก่อน v2.4 ไม่ได้แตะในรอบนี้
+
+### สรุปรอบ
+
+- T1 52/52 · unit 19/19 · T5 34/34 · client parity 3/3 · รวม **108/108** · smoke **22/22** (รวมเคสใหม่ password-mismatch) · ตรวจ onload เพิ่มเติมผ่านครบ
+- `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่มในรอบนี้ — การเปลี่ยนแปลง v2.4 ทั้งหมดทำงานตามที่ตั้งใจ
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
+- หมายเหตุ: สคริปต์ CDP ตรวจ onload เป็นไฟล์ temp นอก repo (ใช้ครั้งเดียวจบรอบ) — หลักฐานผลอยู่ในบันทึกนี้
+
+### การรันยืนยันซ้ำ (resume session 5 พ.ย. เย็น)
+
+หลังจาก session หยุดค้างกลางรอบ รันชุดทดสอบซ้ำทั้งหมดเพื่อยืนยันผลบน working tree เดิม (HEAD `41af25c` + การเปลี่ยนแปลง v2.4 ที่ยังไม่ commit):
+
+- **ผลแรก:** `npm test` ผ่าน (T1 52/52 · unit 19/19 · T5+client parity 37/37) แต่ **smoke ตก 4/22** — เคส seats/checkout/P-12/EVENINGPAIR ที่อ้างรอบ "พรุ่งนี้" ของ m04/m07
+- **สาเหตุ (ไม่ใช่โค้ด v2.4):** ตารางฉายใน PGlite ท้องถิ่นถูกเลื่อนครั้งล่าสุดเมื่อ 4 พ.ย. ทำให้ `date_end = 2026-11-05` = วันที่รันพอดี → ไม่มีรอบวันที่ 11-06 ("พรุ่งนี้") ให้เคสใช้ (`r.items[0]` undefined → ขั้นถัดไปที่ใช้ stId เดียวกันตกตามเป็นลูกโซ่ รวมถึงเคส P-12 ที่เปิด `seats.html?st=` เปล่าแล้ว redirect) — เป็นพฤติกรรมเดียวกับที่ cron `refresh-schedule` บน production จัดการทุกวัน แต่เครื่อง dev ต้องเลื่อนเอง
+- **การแก้สภาพแวดล้อม (ไม่แตะโค้ด/การจอง):** จำลองรอบ cron ของวันพรุ่งนี้ (2026-11-06) ด้วย logic เดียวกับ `refreshSchedule` — เลื่อนหนัง seed 8 เรื่องกลับ offset มาตรฐาน (m01 11-06..09, m02/m05/m04/m07 11-06..11, m03 11-06..08, m08 11-10..11, m06 11-09..11) ก่อนหน้านั้น `--refresh-schedule` รอบเช้าเลื่อนไม่ได้เพราะเงื่อนไข `date_end < วันนี้` ไม่จริงกับเรื่องที่ `date_end = วันนี้` และ m01/m03 ชนตาราง m08/m06 ก่อนเลื่อน — ตรวจก่อนว่าไม่มี booking ที่ยังผูกกับหนังกลุ่มนี้ (0 รายการ) และไม่ชน m09 (คนละหน้าต่างวันที่) · ผู้ใช้ทั้งหมด 55 (เพิ่มจาก 54 ด้วยบัญชี register ของเคส password-mismatch รอบแรก)
+- **ผลหลังแก้:** **smoke 22/22 ผ่านทั้งหมด** — ตั๋ว MAI-T3WV, EVENINGPAIR 540, P-12, 409 ซ้ำ, guard, localStorage สะอาด ครบ
+- **บทเรียนสำหรับรอบหน้า:** ก่อนรัน smoke ให้เช็ค `date_end` ล่าสุดของหนัง seed ≥ พรุ่งนี้ หรือรัน `npm run db:seed -- --refresh-schedule` หลังเที่ยงคืนวันที่ `date_end` ครบ ถ้าเจอกรณี `date_end = วันนี้` ต้องจำลอง cron ของวันถัดไปเอง (refresh ปกติไม่เลื่อนเรื่องที่ยังมีรอบวันนี้)

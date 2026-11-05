@@ -22,7 +22,7 @@
         </div>
         <div class="field">
           <label for="email">อีเมล</label>
-          <input class="input" type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+          <input class="input" type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required title="กรุณากรอกอีเมลให้ถูกต้อง (เช่น you@example.com)">
         </div>
         <div class="field">
           <label for="password">รหัสผ่าน</label>
@@ -31,7 +31,7 @@
         </div>
         <div class="field">
           <label for="confirmPassword">ยืนยันรหัสผ่าน</label>
-          <input class="input" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านซ้ำอีกครั้ง" required minlength="8">
+          <input class="input" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านซ้ำอีกครั้ง" required minlength="8" title="กรอกรหัสผ่านให้ตรงกับช่องด้านบน">
         </div>
         <button type="submit" class="btn btn-primary btn-block" id="submit-btn">สมัครสมาชิก</button>
       </form>
@@ -49,6 +49,23 @@
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         errBox.hidden = true;
+
+        /* Rubric 3 Big Bonus: ตรวจสอบด้วย JS ก่อนส่ง (ไม่พึ่ง browser UI อย่างเดียว)
+           (1) รหัสผ่านทั้งสองช่องต้องตรงกัน — built-in ตรวจกรณีนี้ไม่ได้ */
+        if (document.getElementById('password').value !== document.getElementById('confirmPassword').value) {
+          errBox.textContent = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่';
+          errBox.hidden = false;
+          return;
+        }
+        /* (2) ตรวจ format ที่ JS เอง — แสดงข้อความไทยจาก title ของช่องที่ไม่ผ่าน
+           (ปกติ browser กันก่อนด้วย required/pattern แต่รองรับกรณีที่ built-in ไม่ทำงาน) */
+        if (!form.checkValidity()) {
+          var bad = form.querySelector(':invalid');
+          errBox.textContent = 'รูปแบบข้อมูลยังไม่ถูกต้อง — ' + (bad && bad.title ? bad.title : 'กรุณาตรวจสอบข้อมูลที่กรอก');
+          errBox.hidden = false;
+          return;
+        }
+
         btn.disabled = true;
         btn.textContent = 'กำลังสร้างบัญชี...';
         MAISON_API.register({

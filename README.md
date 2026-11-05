@@ -1,6 +1,6 @@
 # MAISON Cinema
 
-เว็บจองตั๋วหนัง (vanilla HTML/CSS/JS) พร้อม backend บน Vercel Functions + Neon Postgres + Vercel Blob — เวอร์ชัน 2.1
+เว็บจองตั๋วหนัง (vanilla HTML/CSS/JS) พร้อม backend บน Vercel Functions + Neon Postgres + Vercel Blob — เวอร์ชัน 2.4
 
 ## เริ่มใช้งานในเครื่อง
 

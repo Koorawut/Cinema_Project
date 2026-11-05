@@ -1,7 +1,7 @@
 # บันทึกปัญหาและประเด็นค้าง: เว็บไซต์จองตั๋วภาพยนตร์
 
-อัปเดตล่าสุด: 21 ตุลาคม 2026 (ปิด P-20 + เพิ่มหมวดคำถามถามผู้สอนก่อนส่งงาน)  
-สถานะโครงการ: v2.3 — 15 หน้า + backend จริงบน Vercel (Function `/api`) + Neon Postgres + Vercel Blob + cron เลื่อนตารางฉายรายวัน; mock เดิมย้ายเป็น `assets/js/api-mock.js` ใช้กับ T1 เท่านั้น — v1.1 แก้ P-10; v1.2 แก้ P-11; v1.3 แก้ P-13; v1.4 admin คูปอง; v2.0 ปิด P-03, P-06, P-10 (ด้วย cookie จริง), L-1, L-2; v2.1 ปิด P-08; v2.2 ปิด P-12, P-15, P-16, P-17 ผ่าน T5 30/30 + smoke 22/22; 19 ต.ค. smoke บน production 14/14 ผ่าน (รอบที่ 8); v2.3 ปิด P-18, P-19 ผ่าน T5 34/34 + smoke 22/22 (รอบที่ 9) พร้อมฟอร์มกติกาคูปอง + pagination; 19 ต.ค. smoke บน production 8/8 ผ่าน (รอบที่ 10); 20 ต.ค. ตรวจ Blob บน production 5/5 ผ่าน (รอบที่ 11 — ปิด P-20)  
+อัปเดตล่าสุด: 5 พฤศจิกายน 2026 (รอบ v2.4 Big Bonus closure — ปิดช่องว่าง Rubric 2/3/5/6 ระดับ Big Bonus/Bonus ด้าน frontend)  
+สถานะโครงการ: v2.4 — 15 หน้า + backend จริงบน Vercel (Function `/api`) + Neon Postgres + Vercel Blob + cron เลื่อนตารางฉายรายวัน; mock เดิมย้ายเป็น `assets/js/api-mock.js` ใช้กับ T1 เท่านั้น — v1.1 แก้ P-10; v1.2 แก้ P-11; v1.3 แก้ P-13; v1.4 admin คูปอง; v2.0 ปิด P-03, P-06, P-10 (ด้วย cookie จริง), L-1, L-2; v2.1 ปิด P-08; v2.2 ปิด P-12, P-15, P-16, P-17 ผ่าน T5 30/30 + smoke 22/22; 19 ต.ค. smoke บน production 14/14 ผ่าน (รอบที่ 8); v2.3 ปิด P-18, P-19 ผ่าน T5 34/34 + smoke 22/22 (รอบที่ 9) พร้อมฟอร์มกติกาคูปอง + pagination; 19 ต.ค. smoke บน production 8/8 ผ่าน (รอบที่ 10); 20 ต.ค. ตรวจ Blob บน production 5/5 ผ่าน (รอบที่ 11 — ปิด P-20); v2.4 (5 พ.ย.) ปิดช่องว่าง Big Bonus ข้อ 2/3/5 + `window.onload` ข้อ 6 (frontend/docs — ไม่แตะ backend)
 เอกสารหลัก: `cinema-frontend-plan.md` · สรุปส่งต่อ: `cinema-v1-summary.md` · การเปลี่ยนแปลง: `CHANGELOG.md`
 
 ไฟล์นี้แยก **ปัญหาที่พบ**, **ข้อจำกัดในการตรวจเอกสาร**, และ **เรื่องที่ยังต้องตัดสินใจ** ออกจากแผนงาน ไม่ใช้แทนหลักฐานว่าเว็บไซต์หรือเกณฑ์ Rubrics ผ่านแล้ว ทุกครั้งที่อัปเดตโครงการ ให้ตรวจและแก้รายการที่เกี่ยวข้องในไฟล์นี้ แล้วแจ้งในรายงานความคืบหน้าว่าเพิ่ม/ปิด/คงปัญหาใดบ้าง
@@ -167,6 +167,17 @@ Backend จริงบน Vercel (Function เดียว `api/index.js`) + Ne
 - **ยอมรับความเสี่ยง (token):** ค่า Blob token เคยถูกวางแสดงในแชต/terminal output ระหว่างแก้ปัญหา (token ของ store เก่าถูกลบไปแล้วจึงใช้ไม่ได้ แต่ token ปัจจุบันของ store ใหม่ก็เคยแสดงใน terminal) — ผู้ใช้ตัดสินใจยอมรับความเสี่ยงเพราะเป็นโปรเจกต์เรียน ไม่มีผู้ใช้จริง (เหตุผลเดียวกับ P-14); หากวันหน้าเปิดใช้จริง ให้สร้าง store/token ใหม่
 - rollback target หากจำเป็น: deployment `gu8a58vn5` (v2.3 เดิม), `7l15vd2oq` (v2.2), `g6rpa9ndm` (v2.1)
 - ไฟล์ปัญหา: เพิ่ม P-20 (ปิด — ไม่มี P-id เดิมเกี่ยวกับ Blob/แนบภาพ) / คงค้าง P-01, P-04, P-07
+
+## รอบ v2.4 Big Bonus closure (5 พฤศจิกายน 2026)
+
+รอบปิดช่องว่าง Rubric ระดับ Big Bonus/Bonus ที่เหลือของ frontend (ไม่แตะ backend; หลักฐานเต็มใน `cinema-v1-summary.md` หัวข้อ 7):
+
+- **Rubric 3 Big Bonus:** JS ตรวจฟอร์มก่อนส่ง — `register.html`/`account.html` เทียบรหัสผ่านสองช่อง + `form.checkValidity()` แสดงข้อความไทยจาก `title` ของช่องแรกที่ไม่ผ่าน ไม่ส่งคำขอ
+- **Rubric 5 Big Bonus:** ซ่อน/แสดง element ตาม viewport — `styles.css` block 720px ซ่อน `.hero-meta` และ `.coming-card .small.muted` กลับมาแสดงบนเดสก์ท็อป
+- **Rubric 2 Big Bonus:** เอกสาร specificity weight พร้อมตัวอย่าง override จริง 3 คู่จาก `styles.css` (แก้ข้อความ live demo ให้ชี้เป้า `#hero-second-btn` ที่ชนะด้วยกฎบรรทัด 171 จริง)
+- **Rubric 6 Bonus:** ครอบส่วน "เพิ่ม element เมื่อ load" ของหน้าแรกด้วย `window.onload` ตรงถ้อยคำเกณฑ์ (`renderLists()` + readyState guard ใน `index.html`) พร้อมอัปเดตข้อ 6 ตาราง Rubrics เป็น Big Bonus (account.html/admin-promotions.html เพิ่ม/ซ่อนโดย `getElementById()` เมื่อรับข้อมูลจากฟอร์ม)
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / ไม่ปิดรายการใด / คงค้าง P-01, P-04, P-07
+- **ผลทดสอบ (A3 รอบที่ 12, 5 พ.ย.):** T1 52/52 · unit 19/19 · T5+client parity 37/37 · smoke 22/22 (รวมเคสใหม่ password-mismatch บล็อกก่อนถึง API 0 คำขอ) — ผล fail ชั่วคราว 4 เคสช่วงรันซ้ำเย็นเป็นสภาพแวดล้อม DB ท้องถิ่น (ตารางฉาย `date_end` ตรงวันที่รันพอดี ไม่มีรอบ "พรุ่งนี้") ไม่ใช่โค้ด — แก้ด้วยจำลอง cron วันถัดไปแล้วผ่าน 22/22 (รายละเอียด `tests/test-log.md` รอบที่ 12)
 
 ## คำถามที่ต้องถามผู้สอน (ก่อนส่งงาน)
 
