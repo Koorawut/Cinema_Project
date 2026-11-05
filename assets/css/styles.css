@@ -702,4 +702,12 @@ code.inline {
   .ticket-body { grid-template-columns: 1fr 1fr; }
   .seat-row { grid-template-columns: 26px repeat(12, 34px); gap: 5px; }
   .seat { width: 34px; height: 28px; font-size: 9px; }
+  /* ซ่อน/แสดงตามขนาด viewport (Rubric 5 Big Bonus):
+     - .hero-meta คือแถวสถิติย่อบน hero หน้าแรก (เรื่องกำลังฉาย/จะมา/โปรโมชัน) — เป็นข้อมูลประกอบ
+       ไม่ใช่ทางเข้าใช้งานหลัก บนมือถือพื้นที่แนวตั้งมีจำกัดจึงซ่อนเพื่อให้ title + ปุ่ม CTA เห็นเร็วขึ้น
+       (เดสก์ท็อปกลับมาแสดงตามกฎ .hero-meta { display: flex } ปกติ)
+     - .coming-card .small.muted คือบรรทัดเรื่องย่อ (synopsis) ในการ์ด "กำลังจะมาถึง" — ข้อความยาว
+       ทำการ์ดสูงจนต้องเลื่อนเยอะบนจอแคบ; ยังเห็นชื่อเรื่อง/แนว/วันเข้าฉาย และเรื่องย่อเต็มดูได้ในหน้ารายละเอียดของหนังเมื่อเข้าฉาย */
+  .hero-meta { display: none; }
+  .coming-card .small.muted { display: none; }
 }

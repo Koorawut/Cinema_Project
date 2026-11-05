@@ -59,7 +59,7 @@
             <form id="password-form">
               <div class="field">
                 <label for="currentPassword">รหัสผ่านปัจจุบัน</label>
-                <input class="input" type="password" id="currentPassword" autocomplete="current-password" required>
+                <input class="input" type="password" id="currentPassword" autocomplete="current-password" required title="กรอกรหัสผ่านปัจจุบันของบัญชีเพื่อยืนยันตัวตน">
               </div>
               <div class="field">
                 <label for="newPassword">รหัสผ่านใหม่</label>
@@ -68,7 +68,7 @@
               </div>
               <div class="field">
                 <label for="confirmNewPassword">ยืนยันรหัสผ่านใหม่</label>
-                <input class="input" type="password" id="confirmNewPassword" autocomplete="new-password" required minlength="8">
+                <input class="input" type="password" id="confirmNewPassword" autocomplete="new-password" required minlength="8" title="กรอกรหัสผ่านใหม่ให้ตรงกับช่องด้านบน">
               </div>
               <button type="submit" class="btn btn-primary" id="pw-submit">เปลี่ยนรหัสผ่าน</button>
             </form>
@@ -104,6 +104,22 @@
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         errBox.hidden = true;
+
+        /* Rubric 3 Big Bonus: ตรวจสอบด้วย JS ก่อนส่ง — รหัสผ่านใหม่ทั้งสองช่องต้องตรงกัน
+           (built-in required/minlength/pattern ตรวจกรณีนี้ไม่ได้) */
+        if (document.getElementById('newPassword').value !== document.getElementById('confirmNewPassword').value) {
+          errBox.textContent = 'รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่';
+          errBox.hidden = false;
+          return;
+        }
+        /* ตรวจ format ที่ JS เอง — แสดงข้อความไทยจาก title ของช่องที่ไม่ผ่าน */
+        if (!form.checkValidity()) {
+          var bad = form.querySelector(':invalid');
+          errBox.textContent = 'รูปแบบข้อมูลยังไม่ถูกต้อง — ' + (bad && bad.title ? bad.title : 'กรุณาตรวจสอบข้อมูลที่กรอก');
+          errBox.hidden = false;
+          return;
+        }
+
         btn.disabled = true;
         btn.textContent = 'กำลังบันทึก...';
         MAISON_API.changePassword({

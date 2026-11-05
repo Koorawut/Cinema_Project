@@ -13,7 +13,7 @@ let driverPromise = null;
 function connect() {
   const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
   if (!url) {
-    return Promise.reject(new Error('DATABASE_URL is not set (ดูคู่มือใน cinema-v1-summary.md หัวข้อ 7)'));
+    return Promise.reject(new Error('DATABASE_URL is not set (ดูคู่มือใน cinema-v1-summary.md หัวข้อ 8)'));
   }
   if (url.startsWith('pglite:')) {
     const dir = url.slice('pglite:'.length) || undefined; // ว่าง = in-memory

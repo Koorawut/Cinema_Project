@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.3.0';
+  var VERSION = '2.4.0';
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -309,7 +309,7 @@
       (user ? '<a href="account.html">บัญชีของฉัน</a>' : '<a href="login.html">เข้าสู่ระบบ</a>') +
       '  </nav>' +
       '  <div class="footer-meta">' +
-      '    <p class="version-badge" data-od-id="version-badge">เวอร์ชัน 2.3 (v2.3)</p>' +
+      '    <p class="version-badge" data-od-id="version-badge">เวอร์ชัน 2.4 (v2.4)</p>' +
       '    <p>ระบบสาธิตเพื่อการศึกษา — ข้อมูลภาพยนตร์และการจองเป็นชุดตัวอย่างในฐานข้อมูล</p>' +
       '    <p>&copy; 2026 MAISON Cinema Project</p>' +
       '  </div>' +

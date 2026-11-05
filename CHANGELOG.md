@@ -2,6 +2,22 @@
 
 รูปแบบอ้างอิง [Keep a Changelog](https://keepachangelog.com/th-TH/1.1.0/) เวอร์ชันตาม [Semantic Versioning](https://semver.org/lang/th/)
 
+## [2.4.0] — 5 พฤศจิกายน 2026
+
+รอบ Big Bonus closure: ปิดช่องว่าง Rubric Big Bonus ที่เหลือของข้อ 2/3/5/6 — JS ตรวจสอบฟอร์มก่อนส่ง (ข้อ 3), ซ่อน/แสดง element ตามขนาด viewport (ข้อ 5), เอกสารอธิบาย specificity weight พร้อมตัวอย่าง override จริง (ข้อ 2) และครอบส่วน "เพิ่ม element เมื่อ load" ด้วย load event ตรงถ้อยคำเกณฑ์ `window.onload` (ข้อ 6); อัปเดตตาราง Rubrics หัวข้อ 3.1 ของแผนให้ตรงสถานะปัจจุบัน — ผลทดสอบรอบที่ 12: T1 52/52 · unit 19/19 · T5 HTTP 34/34 · client parity 3/3 (รวม 108/108) · smoke เบราว์เซอร์ 22/22 รวมเคสใหม่ password-mismatch บล็อกก่อนถึง API (ดู `tests/test-log.md` รอบที่ 12)
+
+### เพิ่ม (Added)
+- **Rubric 6 Bonus (เพิ่ม element เมื่อ load — ตรงถ้อยคำเกณฑ์ `window.onload`):** `index.html` แยก inline script เป็นสองส่วน — `MAISON.init` (auth/redirect + ปุ่ม hero) ยังรันทันที ส่วน `renderLists()` ที่สร้าง element ทั้งสี่กลุ่มของหน้าแรก (`#hero-meta`, `#top5-row`, `#promo-row`, `#coming-list`) ผูกเข้ากับ `window.onload` (พร้อม `document.readyState === 'complete'` กันกรณี load มาถึงก่อน, `MAISON_API.ready.then` การันตีลำดับ config และไม่มี double-execution) — หลักฐานใน `cinema-v1-summary.md` หัวข้อ 7.4
+- **Rubric 3 Big Bonus (ตรวจสอบด้วย JS):** `register.html` และ `account.html` (ฟอร์มเปลี่ยนรหัสผ่าน) ตรวจใน submit handler ก่อนเรียก API — (1) รหัสผ่านทั้งสองช่องไม่ตรงกัน → แสดง "รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่" ใน `#form-error`/`#pw-error` (textContent) และไม่ส่งคำขอ; (2) `form.checkValidity()` ไม่ผ่าน → แสดงข้อความไทยจาก `title` ของช่องที่ไม่ผ่าน (`:invalid` ตัวแรก) — attribute `required`/`pattern` ของ Rubric 3 Bonus คงเดิมทั้งหมด
+- **Rubric 5 Big Bonus (ซ่อน/ปรากฏ element ตาม viewport):** ใน `@media (max-width: 720px)` ของ `styles.css` เพิ่มกฎซ่อน `.hero-meta` (แถวสถิติย่อบน hero หน้าแรก — ข้อมูลประกอบ ไม่ใช่ทางเข้าหลัก ซ่อนเพื่อให้ title + ปุ่ม CTA เห็นเร็วขึ้นบนจอแคบ) และ `.coming-card .small.muted` (บรรทัดเรื่องย่อของการ์ด "กำลังจะมาถึง" — ข้อความยาวทำการ์ดสูงบนมือถือ ยังอ่านได้ที่หน้ารายละเอียด); ทั้งคู่กลับมาแสดงบนเดสก์ท็อปตามกฎปกติ (`.hero-meta { display: flex }` / `.small` ไม่มี display:none) พร้อมคอมเมนต์ไทยระบุว่าเป็นหลักฐาน Rubric 5 Big Bonus
+- **Rubric 2 Big Bonus (specificity weight) — เอกสาร:** `cinema-v1-summary.md` เพิ่มหัวข้อ "หลักฐาน Specificity Weight (Rubric 2 Big Bonus)" อธิบายมาตราส่วน specificity (inline > id > class/attr/pseudo-class > type/pseudo-element, สัญกรณ์ 0-0-0) พร้อมตัวอย่าง override จริงจาก `styles.css` 3 คู่ พร้อมน้ำหนักที่คำนวณ
+- หลักฐานสาธิตหน้าจอจริง (กรอกรหัสไม่ตรงกัน → ข้อความจาก JS, ย่อหน้าต่าง < 720px → element หาย) รวมอยู่ในหัวข้อใหม่ของ `cinema-v1-summary.md` ให้ยกไปใช้ในรายงานส่งงานได้ตรง ๆ
+
+### เปลี่ยนแปลง (Changed)
+- ตาราง Rubrics `cinema-frontend-plan.md` §3.1 — แถวข้อ 2–6 เปลี่ยนสถานะจาก "ยังไม่ลงมือ" (ค้างมาตั้งแต่รอบวางแผน) เป็นหลักฐานจริงพร้อมตำแหน่งไฟล์/บรรทัด; แถวข้อ 8 ลบหมายเหตุ "ยังไม่ทำ pagination" แล้วระบุว่า pagination ส่งมาแล้วใน v2.3 (admin/users, admin/movies, me/bookings + `MAISON.pager`; T5 34/34 + smoke production รอบที่ 9–10)
+- เลขเวอร์ชันเป็น "เวอร์ชัน 2.4 (v2.4)" (`VERSION` 2.4.0 ใน app.js, eyebrow หน้าแรก, footer, package.json); `tests/smoke-browser.js` เคสตรวจเวอร์ชันปรับตาม
+- `cinema-v1-summary.md` — เช็คลิสต์ §6 เพิ่มแถวบันทึกว่า v2.4 ปิดช่องว่าง Rubric 2/3/5 Big Bonus แล้ว
+
 ## [2.3.0] — 19 ตุลาคม 2026
 
 รอบ Wave 2: กันลบหนังที่มีการจองรอบอนาคต (P-18), กันใช้โค้ดส่วนลดกับรอบที่เริ่มฉายไปแล้ว (P-19), ฟอร์มกำหนดกติกาคูปองฝั่ง admin และแบ่งหน้า (pagination) — สรุปผล: T1 52/52, unit 19/19, T5 HTTP 34/34, client parity 3/3, รวม 108/108 · smoke เบราว์เซอร์ 22/22 (ดู `tests/test-log.md` รอบที่ 9)

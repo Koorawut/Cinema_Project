@@ -1,6 +1,6 @@
 # สรุปโครงการ — เว็บจองตั๋วหนัง MAISON (frontend v1 + backend v2)
 
-อัปเดต: 21 ตุลาคม 2026 (v2.3 — ปิด P-18, P-19 + ฟอร์มกติกาคูปองฝั่ง admin + แบ่งหน้า; 20 ต.ค. ปิด P-20 — Blob บน production ใช้ได้จริง; 21 ต.ค. เพิ่มเช็คลิสต์ก่อนส่งงานใน §6) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.3 (v2.3)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
+อัปเดต: 5 พฤศจิกายน 2026 (v2.4 — ปิดช่องว่าง Rubric 2/3/5/6 Big Bonus: JS validation, ซ่อน/แสดงตาม viewport, เอกสาร specificity weight, เพิ่ม element เมื่อ load ผ่าน `window.onload`; ดูหัวข้อ 7) · ก่อนหน้า: 21 ตุลาคม 2026 (v2.3 — ปิด P-18, P-19 + ฟอร์มกติกาคูปองฝั่ง admin + แบ่งหน้า; 20 ต.ค. ปิด P-20 — Blob บน production ใช้ได้จริง; 21 ต.ค. เพิ่มเช็คลิสต์ก่อนส่งงานใน §6) · แสดงเลขเวอร์ชัน "เวอร์ชัน 2.4 (v2.4)" ที่ eyebrow หน้าแรกและ footer ทุกหน้า
 เอกสารหลัก: `cinema-frontend-plan.md` (สัญญา API หัวข้อ 5, Rubrics หัวข้อ 3.1) · `CHANGELOG.md` · `cinema-issues.md` · `tests/test-log.md`
 
 ## 1. สิ่งที่ส่งมอบ
@@ -69,6 +69,7 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 - **v2.3 (รอบที่ 9):** ปิด P-18 (ลบหนังที่มี booking รอบอนาคต → 409), P-19 (redeem รอบที่เริ่มฉายไปแล้ว → 422) + ฟอร์มกำหนดกติกาคูปองฝั่ง admin + pagination — T1 52/52 · unit 19/19 · T5 34/34 · client parity 3/3 · รวม 108/108 · smoke 22/22
 - **v2.3 บน production (รอบที่ 10, 19 ต.ค. 2026):** A3 ยิง curl ตรงกับ production `maison-cinema-gu8a58vn5-ai-test-project1.vercel.app` — **smoke ผ่าน 8/8 กลุ่มเคส**: `/api/config` + `/api/movies` 200 จาก Neon, เวอร์ชัน "2.3 (v2.3)", cron ไม่มี/ผิด Bearer → 401 (fail-closed), สมัคร/login/`me` (บัญชี `qa_prod_2`), P-18 (ลบหนังที่มี booking รอบอนาคต → 409 ข้อความเต็ม, ไม่มีการจอง → ลบได้), P-19 (redeem รอบที่เริ่มไปแล้ว → 422 / รอบอนาคต → 200 quote ตรงสูตร), กติกาคูปอง (PATCH เปลี่ยน/ล้าง/คงกติกา), pagination (รูปร่าง 2 แบบ, snap หน้า, `page` เลขหลักยาว → 200, `limit` clamp), จองอนาคต `MAI-MWC8` + จองซ้ำ → 409 + `conflicts` — ของทดสอบ `qa_prod_2`/`m12`/`MAI-MWC8` ฝากไว้ใน DB เป็นหลักฐาน (ลบ `m12` ไม่ได้โดยออกแบบจนพ้นรอบ 2026-10-26 10:30)
 - **Blob บน production (รอบที่ 11, 20 ต.ค. 2026):** หลังแก้ปัญหา Blob 503 (store เดิมเป็น Private + token ชี้ store ที่ถูกลบ → สร้าง store ใหม่ `maison-images` แบบ Public + token ใหม่ แล้ว deploy ใหม่ `l2dn7wn7t`) — ตรวจด้วย curl ตรง **ผ่าน 5/5**: login 200, สร้างคูปอง `QABLOB2` พร้อมภาพ PNG → 201 และ image เป็น Blob URL จริง, GET ภาพจาก URL สาธารณะ (ไม่ login) → 200 `image/png`, ลบคูปองทดสอบ → 200, DB เหลือคูปอง seed 3 ใบตามเดิม — **ปิดปัญหา Blob บน production แล้ว: แนบภาพใช้ได้จริง** (P-20 ปิด; ดู `tests/test-log.md` รอบที่ 11)
+- **v2.4 (รอบที่ 12, 5 พ.ย. 2026):** ปิดช่องว่าง Rubric Big Bonus ข้อ 2/3/5 + `window.onload` ข้อ 6 — T1 52/52 · unit 19/19 · T5 34/34 · client parity 3/3 · รวม **108/108** · smoke **22/22** รวมเคสใหม่ password-mismatch (บล็อกก่อนถึง API 0 คำขอ + ส่งถูกยิงจริง 1 ครั้ง); ตรวจ window.onload เพิ่มเติม 10/10 (single-fire, readyState guard ทำงาน) — ดู `tests/test-log.md` รอบที่ 12 และหลักฐานเต็มหัวข้อ 7 ด้านล่าง
 
 ## 6. เงื่อนไขที่ยังค้าง (ส่งต่อรอบถัดไป)
 
@@ -86,10 +87,105 @@ Static: npm run build คัดลอก *.html + assets/ → public/ (outputDir
 | ตรวจ cron เลื่อนตารางฉายครั้งแรก | **22 ต.ค. 2026** (หลังรอบ cron 00:00 เขตไทย) | m03 (Bangkok Bank Run) หมดวันฉาย 21 ต.ค. — ถ้า cron ทำงาน ตารางต้องถูกเลื่อนอัตโนมัติ; วันที่ 20 ต.ค. ยังตรวจไม่ได้เพราะไม่มีหนังเลยวัน (ทุกเรื่องฉายถึง 21 ต.ค. ขึ้นไป) |
 | เก็บกวาดของทดสอบใน Neon | **หลัง 26 ต.ค. 2026 10:30** (พ้นรอบฉายของ `m12`) | ลบหนัง `m12` "QA Prod P18 Reel" + ตั๋ว `MAI-MWC8` (ตอนนี้ลบไม่ได้โดยออกแบบ — guard P-18); บัญชี `qa_prod_1`/`qa_prod_2` ลบได้จากหน้า admin ตลอด ไม่ต้องรอ |
 | P-01 ภาพหลักฐานรายหน้า (มือถือ + เดสก์ท็อป) | แนะนำทำใกล้วันส่ง | เพื่อให้ภาพหลักฐานตรงกับเวอร์ชันสุดท้ายของหน้าเว็บ |
+| Rubric Big Bonus ที่เหลือ (ข้อ 2/3/5) | **ปิดแล้วใน v2.4 (5 พ.ย. 2026)** | JS validation ก่อนส่งฟอร์ม (ข้อ 3) + ซ่อน/แสดงตาม viewport (ข้อ 5) + เอกสาร specificity weight (ข้อ 2) + เพิ่ม element เมื่อ load ผ่าน `window.onload` ตรงถ้อยคำเกณฑ์ (ข้อ 6) — หลักฐานเต็มและวิธีสาธิตอยู่หัวข้อ 7 ของไฟล์นี้; ข้อ 4/6/7/8/9/10/11 Big Bonus มีหลักฐานก่อนหน้าแล้ว (ข้อ 6 — แสดง/ซ่อนตามฟอร์มผ่าน `getElementById()`: `account.html` แท็บบัญชี, `admin-promotions.html` ฟอร์มกติกา ดู §7.4) |
 | P-04 (นิยาม visitor) + P-07 (ข้อมูล/ภาพจริง) | รอคำตอบผู้สอน | รวบรวมเป็นข้อถามแล้วในหมวด "คำถามที่ต้องถามผู้สอน" ของ `cinema-issues.md` (รวม Rubric 1 และ Rubric 9 ด้วย) |
 | Accepted-risk ที่จดแล้ว | — | P-14 (รหัส `admin123` บน production) · Blob token (เคยแสดงใน terminal) — เหตุผลเดียวกัน: โปรเจกต์เรียน ไม่มีผู้ใช้จริง; หากวันหน้าเปิดใช้จริง ให้เปลี่ยนรหัสผ่าน/สร้าง store-token ใหม่ |
 
-## 7. วิธีรันบนเครื่อง (ไม่ต้องมีบัญชี Vercel)
+## 7. หลักฐาน Rubric Big Bonus — รอบปิดช่องว่าง v2.4 (5 พฤศจิกายน 2026)
+
+รอบนี้ปิดช่องว่าง Big Bonus ที่เหลือของ Rubrics ข้อ 2, 3, 5 และเพิ่ม load-event wrapper ตรงถ้อยคำ `window.onload` ของข้อ 6 (ข้อ 4, 6, 7, 8, 9, 10, 11 มีหลักฐานก่อนหน้าแล้ว — ข้อ 6: การแสดง/ซ่อน element ตามฟอร์มผ่าน `getElementById()` มีมาก่อน, รอบนี้เพิ่มส่วน "เพิ่ม element เมื่อ load" ให้ตรงตัวและรวมหลักฐานใน §7.4) — แต่ละหัวข้อด้านล่างเขียนให้ครบ "เกณฑ์ของ Rubric → สิ่งที่ทำ → ตำแหน่งในไฟล์ → วิธีสาธิตสด" เพื่อยกไปใช้ในรายงานส่งงานได้โดยตรง
+
+### 7.1 หลักฐาน Specificity Weight (Rubric 2 Big Bonus)
+
+**เกณฑ์:** อธิบายลำดับการ override ของ CSS selector ด้วยหลัก specificity weight
+
+**หลักการ:** CSS ตัดสินกันด้วย "คะแนนจำเพาะ" (specificity) ก่อนลำดับการเขียนเสมอ — selector ที่จำเพาะกว่าชนะแม้เขียนไว้ก่อน (แพ้เฉพาะ `!important` และ inline style) เขียนแทนเป็นสามช่อง `(id, class, type)`:
+
+1. **inline style** (`style="..."`) สูงสุด — บน element โดยตรง
+2. **id selector** (`#toast-root`) — ช่องที่ 1 ของสามช่อง
+3. **class / attribute / pseudo-class** (`.btn-ghost`, `[aria-current="page"]`, `:hover`, `:not(...)`) — ช่องที่ 2; `:not()` เองไม่มีคะแนน แต่ **argument ข้างในถูกนับ**
+4. **type selector / pseudo-element** (`button`, `h3`, `::before`) — ช่องที่ 3 (ต่ำสุด)
+
+ตัวอย่างการอ่านค่า: `.btn-ghost:hover:not(:disabled)` = class 1 (`btn-ghost`) + pseudo-class 2 (`:hover`, `:disabled` ที่เป็น argument ของ `:not()`) = **(0,3,0)**; `h1` = **(0,0,1)**; `#mf-sched.sched-off` = **(1,1,0)**
+
+**ตัวอย่าง override จริงจาก `assets/css/styles.css`:**
+
+1. **`.btn-ghost:hover:not(:disabled)` (บรรทัด 168) แพ้ `.theme-dark .btn-ghost:hover:not(:disabled)` (บรรทัด 171)**
+   - ต้นกำเพาะ: (0,3,0) — `.btn-ghost` + `:hover` + `:disabled` (argument ของ `:not`)
+   - ที่ชนะ: (0,4,0) — เพิ่ม `.theme-dark` อีก 1 class
+   - ทั้งคู่ตั้ง `color` และ `border-color`; เมื่ออยู่ใน `<body class="theme-dark">` กฎบรรทัด 171 ชนะเพราะมี class-level weight มากกว่า (4 > 3) **แม้เขียนไว้ทีหลังหรือก่อนก็ไม่เกี่ยว** — นี่คือแก้ปัญหา P-13 ที่ปุ่ม ghost กลืนกับพื้นหลังเข้ม: เพิ่ม specificity ด้วยการนำหน้าด้วย class ธีม แทนการใช้ `!important`
+2. **`.main-nav a:hover` (บรรทัด 117) แพ้ `.main-nav a[aria-current="page"]` (บรรทัด 118)**
+   - `.main-nav a:hover` = (0,1,1) — class 1 + type 1
+   - `.main-nav a[aria-current="page"]` = (0,2,1) — class 1 + attribute 1 + type 1
+   - ลิงก์หน้าปัจจุบันในเมนู (`aria-current="page"` ตั้งโดย `app.js`) ติดขอบล่างสีทองเสมอแม้เอาเมาส์ชี้ เพราะ attribute selector ให้น้ำหนักระดับเดียวกับ class ทำให้ (0,2,1) > (0,1,1)
+3. **`.input, .select, textarea.input` (บรรทัด 196) แพ้ `.theme-dark .input, ...` (บรรทัด 202)**
+   - `textarea.input` = (0,1,1); `.theme-dark .input` = (0,2,0)
+   - ช่องกรอกบนธีมเข้ม (movies.html — ช่องค้นหา, หน้า theme-dark เดียวที่มี element `.input`) เปลี่ยนพื้นหลังเป็นสีเข้มเพราะกฎ `.theme-dark .input` จำเพาะกว่า — เป็นรูปแบบเดียวกับตัวอย่างที่ 1 (theme prefix)
+
+**เหตุผลที่กฎที่แพ้:** CSS เปรียบเทียบ (id, class, type) จากซ้ายไปขวาทีละช่อง — ช่องซ้ายสูงกว่าชนะทันที; ชนะเท่ากันทุกช่องจึงดูลำดับการเขียน (ทีหลังชนะ) กฎ "ทีหลัง" จึงมีผลเฉพาะเมื่อ specificity เท่ากันเท่านั้น
+
+**วิธีสาธิตสด:** เปิดหน้าแรก (ธีมเข้ม) → DevTools เลือกปุ่ม hero รอง `#hero-second-btn` ("สมัครสมาชิก", `index.html` บรรทัด 22 — อยู่ใน `main` ไม่ได้อยู่ใน `.site-header`) → ตั้ง state `:hover` ในแท็บ Styles → จะเห็น `.btn-ghost:hover:not(:disabled)` ถูกขีดฆ่าโดย `.theme-dark .btn-ghost:hover:not(:disabled)` (กฎบรรทัด 171 คือตัวชนะ) พร้อมค่าจากกฎที่ชนะ — หมายเหตุ: อย่าใช้ปุ่ม "เข้าสู่ระบบ" ใน header เพราะชนะด้วยกฎ `.site-header .btn-ghost:hover:not(:disabled)` (บรรทัด 178) ซึ่ง specificity เท่ากัน (0,4,0) แต่เขียนทีหลัง ไม่ใช่กฎบรรทัด 171; หรือชี้เมาส์เมนูหน้าปัจจุบันแล้วดูว่าสีขอบทองคงอยู่ (ตัวอย่างที่ 2)
+
+### 7.2 หลักฐานตรวจสอบฟอร์มด้วย JS (Rubric 3 Big Bonus)
+
+**เกณฑ์:** นอกเหนือจาก built-in validation (`required`/`pattern` — เป็นหลักฐาน Bonus อยู่แล้ว) ต้อง "ใช้ JS ตรวจสอบ"
+
+**สิ่งที่ทำ (v2.4):** เพิ่มการตรวจใน submit handler ก่อนเรียก API ทั้ง 2 ฟอร์ม — attribute `required`/`minlength`/`pattern` เดิมคงไว้ทั้งหมด:
+
+- `register.html` (script ท้ายไฟล์, ใน `form.addEventListener('submit', ...)`)
+  - **(ก) รหัสผ่านไม่ตรงกัน:** เทียบ `#password` กับ `#confirmPassword` — ไม่ตรง → `errBox.textContent = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่'`, `errBox.hidden = false` แล้ว `return` (ไม่ส่งคำขอ; ปุ่มไม่ติดสถานะ "กำลังสร้างบัญชี...") — built-in ตรวจกรณีนี้ไม่ได้เพราะเป็นการเทียบสองช่อง
+  - **(ข) รูปแบบไม่ผ่าน:** `form.checkValidity()` ไม่ผ่าน → หาช่อง `:invalid` ตัวแรกแล้วแสดง `title` ของช่องนั้น (ข้อความไทยที่เขียนไว้ เช่น "ใช้ตัวอักษรภาษาอังกฤษ ตัวเลข หรือ _ ความยาว 3–20 ตัวอักษร") แทนการพึ่ง bubble ของ browser
+- `account.html` (ฟอร์มเปลี่ยนรหัสผ่าน `#password-form`) — รูปแบบเดียวกัน: `#newPassword` ≠ `#confirmNewPassword` → "รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่" ใน `#pw-error`, ไม่ส่งคำขอ; และ `checkValidity()` เหมือนกัน
+- ทั้งสองใช้ `textContent` (ไม่ใช่ innerHTML) จึงไม่ต้อง escape — ปฏิบัติตามแนวทางเดิมของโค้ด
+- backend ยังตรวจซ้ำทุกกรณีเหมือนเดิม (`server/validate.js`) — JS เป็นชั้นแรกเพื่อ UX ไม่ใช่ตัวกันหลัก
+
+**วิธีสาธิตสด (ยกไปใส่รายงานได้เลย):**
+1. เปิด `register.html` → กรอกข้อมูลครบ แต่กรอกรหัสผ่านกับยืนยันไม่ตรงกัน → กด "สมัครสมาชิก" → **เกิดแถบแดง "รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่" ทันทีโดยไม่มีคำขอออกไปที่ server** (ดูแท็บ Network = ไม่มี request)
+2. DevTools → Console พิมพ์ `document.getElementById('register-form').noValidate = true` (ปิด built-in ชั่วคราว) → กรอก username เป็นภาษาไทย → กดส่ง → ได้ข้อความไทยจาก JS ("รูปแบบข้อมูลยังไม่ถูกต้อง — ใช้ตัวอักษรภาษาอังกฤษ...") แสดงว่า JS ตรวจเองจริง ไม่ได้พึ่ง browser UI — แล้วรีเฟรชหน้าคืนค่าเดิม
+3. `account.html?tab=password` → กรอก "ยืนยันรหัสผ่านใหม่" ไม่ตรง → กด "เปลี่ยนรหัสผ่าน" → แถบแดงใน `#pw-error` ไม่มีคำขอออก
+
+### 7.3 หลักฐานซ่อน/ปรากฏ Element ตามขนาดการแสดงผล (Rubric 5 Big Bonus)
+
+**เกณฑ์:** มี element ที่ซ่อนบนขนาดจอหนึ่งและกลับมาแสดงบนอีกขนาด (ไม่ใช่แค่จัด layout ใหม่)
+
+**สิ่งที่ทำ (v2.4):** ใน `@media (max-width: 720px)` ของ `assets/css/styles.css` (ท้ายบล็อก, หลังกฎ `.seat` บรรทัด ~704) เพิ่ม 2 กฎ พร้อมคอมเมนต์ไทยระบุว่าเป็นหลักฐาน Rubric 5 Big Bonus:
+
+- `.hero-meta { display: none; }` — แถวสถิติย่อบน hero หน้าแรก ("N เรื่องกำลังฉาย / N เรื่องจะมา / N โปรโมชัน", element `#hero-meta` ใน `index.html` บรรทัด 24) — เป็นข้อมูลประกอบไม่ใช่ทางเข้าใช้งานหลัก บนมือถือพื้นที่แนวตั้งจำกัด ซ่อนเพื่อให้ title และปุ่ม CTA ("ดูภาพยนตร์ทั้งหมด") ขึ้นมาเห็นเร็วขึ้น; บนเดสก์ท็อปกลับมาแสดงตามกฎปกติ `.hero-meta { display: flex }` (บรรทัด 302 — ตรวจแล้วว่ากฎ desktop ไม่ได้ตั้ง `display: none` อยู่แล้ว)
+- `.coming-card .small.muted { display: none; }` — บรรทัดเรื่องย่อ (synopsis) ในการ์ดหัวข้อ "กำลังจะมาถึง" (สร้างโดย script หน้า index: `E('p', 'small muted', m.synopsis)`) — ข้อความยาว 2–3 บรรทัดทำให้การ์ดสูงและต้องเลื่อนเยอะบนจอแคบ; ผู้ใช้ยังเห็นชื่อเรื่อง/แนว/วันเข้าฉาย และเรื่องย่อเต็มดูได้ในหน้ารายละเอียดของหนังเมื่อเข้าฉาย; บนเดสก์ท็อปแสดงตามปกติ
+
+**วิธีสาธิตสด:** เปิดหน้าแรกบนเดสก์ท็อป → เห็นแถวสถิติใต้ปุ่ม hero และเรื่องย่อในการ์ด "กำลังจะมาถึง" → DevTools กด Toggle device toolbar เลือกจอกว้าง ≤ 720px (เช่น 390px) → ทั้งสองหายไป → ปิด toolbar กลับมาแสดง — หรือลากหน้าต่างเบราว์เซอร์แคบลง/กว้างขึ้นก็เห็นเช่นกัน
+
+### 7.4 หลักฐานเพิ่ม Elements เมื่อ load ผ่าน window.onload (Rubric 6 Bonus — ตรงถ้อยคำเกณฑ์)
+
+**เกณฑ์:** "เพิ่ม Elements เมื่อ load" — โบนัสของข้อ 6 (Big Bonus ของข้อ 6 คือ "Basic + Bonus + เพิ่มหรือซ่อน Elements โดย `getElementById()` เมื่อรับข้อมูลจาก Form")
+
+**สิ่งที่ทำ (v2.4):** `index.html` จัดโครงสร้าง inline script (บรรทัด 52–143) ใหม่ให้ตรงถ้อยคำเกณฑ์ — แยกงานออกเป็นสองส่วน:
+
+- **ส่วนที่รันทันที (ไม่รอ load):** `MAISON.init({ nav: 'home' })` (บรรทัด 132) — auth/redirect ของ shell ต้องไม่รอ load event; ใน `.then()` เมื่อผู้ใช้ login อยู่ เปลี่ยนปุ่ม hero รอง `#hero-second-btn` เป็น "จองตั๋วของคุณ" (ชี้ไป movies.html)
+- **ส่วนที่รันเมื่อ load:** ฟังก์ชัน `renderLists()` (บรรทัด 59–130) สร้าง element เพิ่มเข้า DOM ทั้งสี่กลุ่มของหน้าแรก — สถิติย่อ `#hero-meta`, การ์ด Top 5 ใน `#top5-row`, การ์ดโปรโมชันใน `#promo-row`, การ์ด "กำลังจะมาถึง" ใน `#coming-list` (ผ่าน `document.getElementById(...)` + `appendChild` เหมือนเดิม) — แล้วผูกเข้ากับ load event ตรงตามถ้อยคำเกณฑ์ (บรรทัด 140–142):
+  - `window.onload = renderLists;` — inline script ท้าย body ปกติจะเจอ load event หลังสคริปต์เสมอ
+  - กันกรณีพิเศษ: `if (document.readyState === 'complete') { renderLists(); }` — ถ้า load มาถึงก่อนสคริปต์ (เช่น cache) เรียกทันทีแทน ไม่รอตลอดไป
+- **ความถูกต้องแม้ load มาก่อน config/init:** `renderLists()` เริ่มด้วย `MAISON_API.ready.then(...)` เสมอ — คำขอ `movies`/`comingSoon`/`promotions` (และ `showDates()` ที่ใช้ `today` จาก `/api/config`) ยิงเฉพาะหลัง config พร้อมเท่านั้น จึงไม่พึ่งสมมติฐานเรื่องลำดับเวลา; และถูกเรียกครั้งเดียวจากทางเดียว (เงื่อนไข if/else) จึงไม่มี double-execution; ไม่มีตัวแปรของ init หลุดขอบเขต (ctx ใช้เฉพาะใน `.then()` ของ init ที่ยังอยู่ที่เดิม)
+
+**วิธีสาธิตสด:** เปิด `index.html` → DevTools Network ตั้ง throttle "Slow 3G" แล้วรีเฟรช → จะเห็นว่าการ์ด Top 5 / โปรโมชัน / กำลังจะมาถึง / แถวสถิติ hero ปรากฏหลัง resource ทั้งหมดโหลดเสร็จ (load event) ไม่ใช่ทันทีที่เจอสคริปต์; หรือ Console พิมพ์ `window.onload.toString()` เพื่อแสดงว่า handler ผูกอยู่จริง — รายการทั้งสี่มาจาก JSON ของ `/api/*` (fetch หลายจุดในหน้าเดียว ตามข้อ 10 bonus)
+
+### 7.5 สรุปสถานะ Rubrics ทั้ง 11 ข้อหลัง v2.4
+
+| ข้อ | Basic | Bonus | Big Bonus | หลักฐานหลัก |
+| --- | --- | --- | --- | --- |
+| 1 wireframe/architecture | ต้องถามผู้สอนรูปแบบการส่ง | — | — | §2 ของไฟล์นี้ + `cinema-frontend-plan.md` (คำถามใน `cinema-issues.md`) |
+| 2 CSS selectors + specificity | ✓ | ✓ | ✓ (v2.4 — §7.1) | `styles.css` + §7.1 |
+| 3 form validation + JS | ✓ | ✓ | ✓ (v2.4 — §7.2) | `register.html`/`account.html`/`login.html` + §7.2 |
+| 4 semantic + Flexbox/Grid | ✓ | ✓ | ✓ | 15 หน้า HTML + `styles.css` |
+| 5 responsive + hide/show | ✓ | ✓ | ✓ (v2.4 — §7.3) | `styles.css` media queries + §7.3 |
+| 6 JS เปลี่ยน style (getElementById) | ✓ | ✓ | ✓ (v2.4 — §7.4) | `seats.html`, `admin.html`, `account.html`, `admin-promotions.html`, `index.html` (load handler) |
+| 7 JSON แสดงผล/คำนวณ/เก็บ DB | ✓ | ✓ | ✓ | `/api/*` + Neon (ตาราง §3.1 แผน) |
+| 8 DB CRUD + pagination | ✓ | ✓ | ✓ (pagination v2.3) | `server/routes/admin.js`, `MAISON.pager` |
+| 9 Cookies/session วงจรเต็ม | ✓ | ✓ | ✓ | `maison_sid` + ตาราง `sessions` |
+| 10 XHR/Fetch | ✓ | ✓ | ✓ | `api.js` (XHR `/api/config` + fetch หลายจุด/หน้า) |
+| 11 รายงานสถิติ + กราฟ + filter | ✓ | ✓ | ✓ | `admin.html` |
+
+## 8. วิธีรันบนเครื่อง (ไม่ต้องมีบัญชี Vercel)
 
 ต้องมี Node.js ≥ 20
 
@@ -116,7 +212,7 @@ DATABASE_URL=pglite:./.pglite COOKIE_INSECURE=1 npm run dev
 | `npm run test:mock` / `test:unit` / `test:api` | รันแยกชุด |
 | `npm run test:smoke` | smoke ผ่าน Edge/Chrome headless (ต้องตั้ง `DATABASE_URL` + `COOKIE_INSECURE=1` และ seed ก่อน) |
 
-## 8. Deploy บน Vercel
+## 9. Deploy บน Vercel
 
 1. push repo ขึ้น GitHub แล้ว Import เป็นโปรเจกต์ Vercel (Framework Preset: Other — `vercel.json` กำหนด `buildCommand` / `outputDirectory: public` ให้แล้ว)
 2. Vercel → Storage → Create **Neon** (Postgres) → Connect กับโปรเจกต์ (ได้ `DATABASE_URL`) — แนะนำเปิดให้สร้าง database branch สำหรับ Preview

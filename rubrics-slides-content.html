@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Leelawadee UI", "Segoe UI", Tahoma, sans-serif;
+    font-size: 11.5pt; line-height: 1.65; color: #1f2621; margin: 0; padding: 24px 30px;
+  }
+  h1 { font-size: 19pt; color: #171a18; border-bottom: 3px solid #C9B485; padding-bottom: 8px; margin: 0 0 14px; }
+  h2 { font-size: 14.5pt; color: #23201A; background: #f3efe7; border-left: 5px solid #C9B485; padding: 6px 12px; margin: 26px 0 10px; page-break-after: avoid; }
+  h3 { font-size: 12pt; color: #55503E; margin: 18px 0 8px; page-break-after: avoid; }
+  p { margin: 7px 0; }
+  ul, ol { margin: 6px 0 6px 22px; padding: 0; }
+  li { margin: 3px 0; }
+  blockquote {
+    margin: 10px 0; padding: 8px 14px; background: #f7f4ee; border-left: 4px solid #A34A32;
+    color: #4a4438; font-size: 10.5pt;
+  }
+  blockquote p { margin: 3px 0; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 9.8pt;
+    background: #efece5; padding: 1px 5px; border-radius: 3px; color: #33302a;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 10.3pt; page-break-inside: avoid; }
+  th { background: #2e3230; color: #f7f1e8; padding: 6px 9px; text-align: left; font-weight: 600; }
+  td { border: 1px solid #d8d2c6; padding: 6px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #faf8f4; }
+  hr { border: none; border-top: 1.5px solid #d8d2c6; margin: 20px 0; }
+  strong { color: #171a18; }
+  .pagebreak { page-break-before: always; }
+</style>
+</head>
+<body><h1>เนื้อหาสไลด์: โครงการ MAISON เทียบ Project Rubrics (Basic / Bonus / Big Bonus)</h1>
+<blockquote>
+<p>เอกสารสำหรับทำสไลด์นำเสนอ — อ้างอิง <code>Project-Rubrics---Sheet1.pdf</code> (วิชา 040613411 Web Development) ทั้งหมด 11 หมวด
+อัปเดต 5 พฤศจิกายน 2026 — รวมงานที่ทำแล้ว (v2.4 โค้ดเสร็จ กำลังทดสอบ) และงานที่วางแผนไว้ (v2.5) เพื่อใช้เตรียมสไลด์ล่วงหน้า</p>
+<p><strong>สัญลักษณ์:</strong> ✅ = ทำแล้ว มีหลักฐาน · 🔶 = โค้ดทำแล้ว อยู่ระหว่างทดสอบ (v2.4) · 📋 = วางแผนไว้แล้ว (มีแผนชัด กำลังลงมือ)</p>
+<p><strong>เกร็ดใช้สไลด์:</strong> แต่ละหมวดมี 3 ส่วน — Basic (สิ่งที่โจทย์บังคับ), Bonus (ของเพิ่ม), Big Bonus (ของเพิ่มชั้นสูง) + &quot;โชว์ตอนพรีเซนต์&quot; คือวิธีสาธิตให้กรรมการเห็นจริง</p>
+</blockquote>
+<hr>
+<h2>สไลด์แรก: แนะนำโครงการ</h2>
+<p><strong>MAISON — เว็บจองตั๋วภาพยนตร์ออนไลน์</strong></p>
+<p>พูดง่าย ๆ: เราสร้างเว็บจองตั๋วหนังครบวงจร ตั้งแต่สมัครสมาชิก → เลือกหนัง/รอบฉาย → เลือกที่นั่งบนผังโรง → จ่าย (คำนวณส่วนลดคูปองให้) → ได้ตั๋ว และมีหลังบ้าน (admin) สำหรับจัดการหนัง คูปอง สมาชิก และดูรายงานสถิติ</p>
+<p><strong>เทคโนโลยีที่ใช้ (อธิบายง่าย):</strong></p>
+<ul>
+<li>หน้าเว็บ 15 หน้า เขียนด้วย HTML/CSS/JavaScript ล้วน ๆ (ไม่พึ่ง framework สำเร็จรูป)</li>
+<li>&quot;หลังบ้าน&quot; จริง: ข้อมูลทุกอย่างเก็บในฐานข้อมูล PostgreSQL (Neon) ผ่าน API บน Vercel</li>
+<li>รูปโปสเตอร์/คูปองเก็บบนคลาวด์ (Vercel Blob) อัปโหลดได้จริง</li>
+<li>ระบบล็อกอินใช้ cookie HttpOnly + เก็บ session ในฐานข้อมูล (ปลอดภัยตามมาตรฐาน)</li>
+<li>มีตัวนับทดสอบอัตโนมัติ 108 เคส ผ่านหมด + ทดสอบบนเว็บจริง (production) ผ่านทุกรอบ</li>
+</ul>
+<p><strong>สรุปคะแนน Rubrics (สไลด์ที่ 2):</strong></p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>ผล</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Basic — ข้อ 1–11</td>
+<td>✅ ครบ 11/11</td>
+</tr>
+<tr>
+<td>Bonus — ข้อ 1–11</td>
+<td>✅ ครบ 11/11</td>
+</tr>
+<tr>
+<td>Big Bonus</td>
+<td>✅ ครบทุกข้อ — ข้อ 4, 6, 7, 8, 9, 10, 11 เสร็จก่อนแล้ว (7 ข้อ) · ข้อ 2, 3, 5 เสร็จในรอบ v2.4 · ข้อ 11 เสริมระบบนับผู้เข้าชมในรอบ v2.5 เพื่อความสมบูรณ์</td>
+</tr>
+</tbody></table>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 1 — Wireframe และ System Architecture</h2>
+<p><strong>Basic ✅</strong></p>
+<ul>
+<li>ทำผังหน้าจอครบ 14 หน้าตามแบบ Figma + ผังการใช้งานจริง: ล็อกอิน → เลือกหนัง → เลือกรอบฉาย → เลือกที่นั่ง → ยืนยันจอง → รับตั๋ว</li>
+<li>วาดผังระบบทั้งหมด: เบราว์เซอร์ (หน้าเว็บ) → API (Vercel Function) → ฐานข้อมูล (Neon Postgres) + คลาวด์เก็บรูป (Vercel Blob)</li>
+<li>อธิบายตารางในฐานข้อมูลได้ครบ: ผู้ใช้, หนัง, รอบฉาย, การจอง, ที่นั่งที่จอง, คูปอง, session</li>
+</ul>
+<p><strong>เอกสารอ้างอิง:</strong> <code>cinema-frontend-plan.md</code> (ผังหน้าจอ), <code>cinema-v1-summary.md</code> (สถาปัตยกรรม)</p>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> แผ่นเดียวจบ — แผนภาพ &quot;เบราว์เซอร์ → API → DB&quot; + เส้น flow การจองตั๋ว</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 2 — CSS Selector</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> Selector คือ &quot;วิธีเลือกว่าจะจัดรูปแบบ (ใส่สี ขนาด ฯลฯ) ให้ส่วนไหนของหน้าเว็บ&quot; — เกณฑ์อยากเห็นเราใช้ครบทุกวิธี</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริงจากโค้ด (<code>assets/css/styles.css</code>)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> ครบ 7 ชนิด</td>
+<td>ใช้ selector ทุกชนิดที่เกณฑ์ขอ กับงานจริง ไม่ใช่แค่ใส่มาโชว์</td>
+<td>Type (<code>body</code>, <code>h1</code>) · Universal (<code>*</code> ครอบทุก element) · Class (<code>.btn</code>) · ID · Pseudo-Class (<code>:hover</code> = เมาส์ชี้, <code>:focus-visible</code> = เล่นด้วยคีย์บอร์ด, <code>:disabled</code> = ปุ่มกดไม่ได้) · Pseudo-Element (<code>::before</code>, <code>::after</code>) · Attribute (<code>a[aria-current=&quot;page&quot;]</code> = ลิงก์หน้าปัจจุบัน)</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> Combination 3 แบบ</td>
+<td>ผสมหลาย selector เข้าด้วยกัน</td>
+<td>Descendant (<code>.theme-dark .btn-ghost</code> = ปุ่ม ghost เฉพาะหน้าพื้นเข้ม) · Child (<code>.seat-legend &gt; .key</code>) · Adjacent sibling (<code>.range-tabs button + button</code>)</td>
+</tr>
+<tr>
+<td><strong>Big Bonus 🔶</strong> Specificity Weight</td>
+<td>เมื่อกฎ 2 ข้อชนกัน &quot;ใครชนะ&quot; ถูกตัดสินด้วยน้ำหนักความจำเพาะ — เราเขียนเอกสารอธิบายพร้อมตัวอย่างจริง 3 คู่</td>
+<td>ตัวอย่างเด่น: ปุ่มเดียวกันในหน้าพื้นสว่างใช้ <code>.btn-ghost:hover:not(:disabled)</code> (น้ำหนัก 0,3,0) แต่หน้าพื้นเข้มชนะด้วย <code>.theme-dark .btn-ghost:hover:not(:disabled)</code> (0,4,0) เพราะมี class เพิ่มมา 1 — ทำให้ปุ่มมองเห็นชัดบนพื้นเข้ม (แก้จากปัญหาจริง P-13)</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> เปิดเว็บหน้าแรก (พื้นเข้ม) กับหน้าอื่น (พื้นสว่าง) ชี้ปุ่ม &quot;เข้าสู่ระบบ&quot; สีต่างกัน → เปิด styles.css อธิบายว่ากฎไหนชนะทำไม</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 3 — Front-End Validation (ตรวจฟอร์ม)</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> เวลาผู้ใช้กรอกฟอร์ม (สมัครสมาชิก ฯลฯ) เราต้องกันข้อมูลผิด/ว่างก่อนส่งเข้าระบบ — เกณฑ์ให้คะแนน 3 ชั้น: ใช้ของ built-in, ใช้ regex กำหนดรูปแบบเอง, และใช้ JavaScript ตรวจเอง</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> Built-in ≥3 จุด</td>
+<td>ใช้ตัวตรวจในตัวของ HTML หลายจุด</td>
+<td><code>required</code> (ห้ามว่าง), <code>type=email</code> (รูปแบบอีเมล), <code>minlength</code>/<code>maxlength</code> (ความยาว) — ในฟอร์มสมัคร เข้าสู่ระบบ เปลี่ยนรหัสผ่าน</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> Regex ผ่าน <code>pattern</code></td>
+<td>กำหนดกติกาด้วย Regular Expression</td>
+<td>username ต้องเป็นตัวอังกฤษ/ตัวเลข/ขีดล่าง 3–20 ตัว: <code>[A-Za-z0-9_]{3,20}</code> · รหัสผ่านต้องยาว 8+ มีทั้งตัวอักษรและตัวเลข: <code>(?=.*[A-Za-z])(?=.*\d).{8,}</code></td>
+</tr>
+<tr>
+<td><strong>Big Bonus 🔶</strong> ใช้ JS ตรวจสอบ</td>
+<td>เขียน JavaScript ตรวจเองก่อนส่ง (v2.4)</td>
+<td>กรอกรหัสผ่านสองช่องไม่ตรงกัน → ข้อความเตือนภาษาไทยโผล่ทันที <strong>โดยไม่ยิง request ไป server เลย</strong> (ดูแท็บ Network ไม่มีคำขอเกิดขึ้น)</td>
+</tr>
+<tr>
+<td>เกินเกณฑ์</td>
+<td>ตรวจซ้ำอีกชั้นที่ server</td>
+<td>ถ้าใครข้าม JS (เช่นยิง API ตรง) server ก็ปฏิเสธเช่นกัน (422) — กันหลอกได้ทุกทาง</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> หน้าสมัคร → กรอกรหัสผ่านสองช่องต่างกัน → กดสมัคร → ข้อความเตือนจาก JS + ชี้ DevTools Network ว่าไม่มี request</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 4 — Semantic Layout</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> Semantic = ใช้แท็ก HTML &quot;ตามความหมาย&quot; เช่น ส่วนหัวใช้ <code>&lt;header&gt;</code> เมนูใช้ <code>&lt;nav&gt;</code> เนื้อหาใช้ <code>&lt;main&gt;</code> — ไม่ใช่กอง <code>&lt;div&gt;</code> มั่ว ทำให้ browser/screen reader เข้าใจโครงหน้า</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> ≥50% ของหน้า</td>
+<td>ใช้ <code>header</code>, <code>nav</code>, <code>main</code>, <code>section</code>, <code>article</code>, <code>footer</code>, <code>form</code>, <code>table</code> ตามความหมายจริงเกินครึ่งของทุกหน้า</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> ครบทุกหน้า</td>
+<td>ทั้ง 15 หน้าใช้ semantic ครบ ไม่เว้น</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> Flexbox/Grid ≥1 หน้า</td>
+<td>ใช้ทั่วเว็บ — ผังที่นั่งโรงหนังเป็น CSS Grid (แถว A–H × 12 ที่นั่ง), รายการหนังเป็น Grid การ์ด, หลังบ้านเป็น Grid (sidebar + เนื้อหา), แถบเมนูเป็น Flexbox</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> เปิดหน้าเลือกที่นั่ง → DevTools ชี้ผังที่นั่ง = <code>display: grid</code></p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 5 — Mobile First</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> เขียน CSS เริ่มจากจอมือถือก่อน แล้วค่อย &quot;ขยาย&quot; สำหรับจอใหญ่ด้วย <code>@media</code> — เกณฑ์ชั้นสูงให้ element บางอย่างซ่อน/โผล่ตามขนาดจอ</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> 2 ขนาด ≥50% หน้า</td>
+<td>base CSS = มือถือ + 2 จุดขยาย</td>
+<td><code>@media (max-width: 1080px)</code> และ <code>(max-width: 720px)</code> — ครอบทุกหน้า</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> ครบทุกหน้า</td>
+<td>ทุก layout จัดใหม่บนมือถือ</td>
+<td>ผังที่นั่งเล็กลง, ตาราง admin ยุบเป็นแถวเดียว, เมนูย้ายลงล่าง, การ์ดเรียงเดียว</td>
+</tr>
+<tr>
+<td><strong>Big Bonus 🔶</strong> ซ่อน/โผล่ตามขนาดจอ</td>
+<td>element ที่ไม่จำเป็นบนจอเล็กถูกซ่อน (v2.4)</td>
+<td>บนมือถือ: ซ่อนแถวสถิติย่อใต้แบนเนอร์หน้าแรก (<code>.hero-meta</code>) และบรรทัดเรื่องย่อในการ์ด &quot;กำลังจะมาถึง&quot; — หน้าโปร่งขึ้น อ่านเร็วขึ้น; ขยายจอกลับ = กลับมาแสดงเอง</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> เปิดหน้าแรก → ลากหน้าต่างแคบลงเรื่อย ๆ → ชี้ layout จัดใหม่ + element หายไป → ลากกลับกว้าง → element โผล่คืน</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 6 — การจัดการ DOM ด้วย JavaScript</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> DOM คือโครงหน้าเว็บที่ JS ปรับแก้ได้สด ๆ เกณฑ์อยากเห็น JS เปลี่ยนหน้าเว็บได้จริง (ไม่ใช่แค่โหลดข้อมูลมาแสดง)</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> เปลี่ยน style ผ่าน <code>getElementById()</code> ≥2 จุด ไม่เกี่ยว Ajax</td>
+<td>ใช้เกิน 2 จุดแล้วในทุกหน้า</td>
+<td>กดเลือกที่นั่ง → ที่นั่งเปลี่ยนสีทันที (classList), กดบันทึก → ปุ่มกลายเป็น &quot;กำลังบันทึก...&quot; + กดไม่ได้, มี error → กล่องข้อความแดงโผล่</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> เพิ่ม Elements เมื่อ load หน้า</td>
+<td>สร้างการ์ด/แถวข้อมูลเพิ่มเข้าหน้าด้วย JS</td>
+<td>หน้าแรก: JS สร้างการ์ด Top 5, โปรโมชัน, หนังกำลังจะมา, แถวสถิติย่อ — ตอนหน้าโหลด (<code>index.html:61-126</code>)</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> เพิ่ม/ซ่อน Elements เมื่อรับข้อมูลจาก Form</td>
+<td>ฟอร์มตอบสนองตามที่กรอก</td>
+<td>หน้า admin คูปอง: เลือก &quot;ชนิดส่วนลด&quot; เป็น % → โชว์ช่อง &quot;ลดกี่ %&quot; เป็นราคารวม → สลับช่องอื่นทันที (<code>syncRuleFields</code>); หน้าบัญชี: สลับแท็บข้อมูล/เปลี่ยนรหัสผ่าน</td>
+</tr>
+<tr>
+<td>(หมายเหตุ) 🔶</td>
+<td>เพิ่ม <code>window.onload</code> ตรงตามถ้อยคำเกณฑ์</td>
+<td>กำลังใส่ใน v2.4: ครอบส่วน &quot;เพิ่ม element ตอน load&quot; ของหน้าแรกด้วย load event ตามถ้อยคำเกณฑ์ (ตอนนี้ใช้ script ท้าย body ซึ่งผลเหมือนกัน)</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> หลังบ้าน → เพิ่มคูปอง → สลับชนิดส่วนลด 2–3 รอบให้เห็นฟิลด์เด้งเข้า/ออกแบบสด</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 7 — ดึงข้อมูล JSON มาแสดงผล</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> JSON คือรูปแบบข้อมูลที่ API ส่งกลับมา — เกณฑ์ไล่จาก &quot;โหลดมาแสดง&quot; → &quot;เอาไปคำนวณ&quot; → &quot;เอาไปบันทึกลงฐานข้อมูล&quot;</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> ดึง JSON แล้วแสดงให้อ่านง่าย</td>
+<td>ทุกหน้าแสดงจาก JSON จริงของ API</td>
+<td>หนัง/รอบฉาย/ที่นั่ง/ประวัติจอง/สถิติ ทั้งหมดมาจาก <code>/api/*</code> (ฐานข้อมูลจริง)</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> คำนวณจาก JSON แล้วแสดงผลลัพธ์</td>
+<td>คำนวณสดจากข้อมูลที่ดึงมา</td>
+<td>Top 5 หนังยอดฮิต, ยอดรวมในหน้าชำระเงิน = (ราคาบัตร + ค่าบริการ ฿30) × จำนวนที่นั่ง</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> ใช้ JSON เก็บลงฐานข้อมูล</td>
+<td>ส่ง JSON กลับไปบันทึกจริง</td>
+<td>กดจอง → ส่ง JSON <code>{showtimeId, seatIds, promoCode}</code> → server คำนวณราคาเอง → บันทึกลงตาราง <code>bookings</code> ใน PostgreSQL — ปิดหน้าเปิดใหม่ข้อมูลยังอยู่</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> จองตั๋ว 1 รอบพร้อมเปิด DevTools Network → ชี้ POST JSON → กลับไปหน้าประวัติให้เห็นการจองใหม่</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 8 — ฐานข้อมูล + CRUD</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> CRUD = Create/Read/Update/Delete (เพิ่ม อ่าน แก้ ลบ) — เกณฑ์ชั้นสูงอยากเห็นการค้นหา, ข้อมูลซับซ้อน, และการแบ่งหน้าเมื่อข้อมูลเยอะ</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> CRUD ครบ</td>
+<td>ทำครบ 4 จุดบน PostgreSQL จริง</td>
+<td>หนัง (เพิ่ม/แก้/ลบ/รายการ), คูปอง, บัญชีสมาชิก (เปลี่ยน role/ลบ), การจอง; เช็คสิทธิ์ user/admin ที่ server ทุกเส้นทาง</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> ค้นหา + ข้อมูลซับซ้อน</td>
+<td>ค้นหาได้หลายเงื่อนไขพร้อมกัน</td>
+<td>ค้นหาหนัง (ชื่อ + หมวด + เรียงลำดับ + ช่วงวันที่), ค้นหาสมาชิก, นับที่นั่งว่างรายรอบจากหลายตาราง</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> แบ่งหน้า (pagination)</td>
+<td>ข้อมูลเยอะแบ่งเป็นหน้า ๆ (v2.3)</td>
+<td>รายการสมาชิก/หนัง/ประวัติจอง แบ่งหน้า พร้อมปุ่มเลขหน้า และกันค่าหน้าปลอม (เลขยักษ์ → snap ไปหน้าสุดท้าย)</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> หลังบ้าน → ค้นชื่อสมาชิก → กดหน้า 2 → แสดงให้เห็นข้อมูลจริง ~3,300 รายการจองแบ่งหน้าได้</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 9 — Cookies และ Session</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> Session คือ &quot;ระบบจำว่าใครล็อกอินอยู่&quot; — เกณฑ์ต้องการวงจรครบ: สร้าง → เก็บ → อ่าน → อ่าน ID → ลบบางค่า → จบ session</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> วงจรครบ 6 ขั้น</td>
+<td>ทำครบทุกขั้นด้วย cookie + ฐานข้อมูล</td>
+<td>ล็อกอิน → สร้างแถว session + ตั้ง cookie <code>maison_sid</code> · เก็บใคร/จำฉันไว้ไหม/หมดอายุเมื่อไหร่ · อ่านคืนทุกคำขอ · server อ่าน session ID จาก cookie · เปลี่ยนรหัสผ่านแล้วเข้าสู่ระบบเครื่องอื่นถูกถอน · ล็อกเอาต์ลบแถว + ล้าง cookie</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> Session ผูกกับฐานข้อมูล</td>
+<td>ตาราง <code>sessions</code> ใน DB จริง</td>
+<td>หมดอายุ 12 ชม. (ปกติ) หรือ 30 วัน (ติ๊กจำฉันไว้) — เก็บที่ server ปลอดภัยกว่าฝากไว้ในเบราว์เซอร์</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> ประมวลผล ≥2 ค่าต่อ session</td>
+<td>เก็บ 4 ค่า</td>
+<td>ใคร (<code>user_id</code>), สิทธิ์อะไร (<code>role</code>), จำฉันไว้ (<code>remember</code>), หมดอายุ (<code>expires_at</code>) — ประวัติจองและหน้า admin ผูกกับ session นี้</td>
+</tr>
+<tr>
+<td>(หลักฐาน) 🔶</td>
+<td>ข้อเสนอรูปแบบหลักฐาน (แบบ A+B)</td>
+<td>cookie ตั้งใจเป็น <strong>HttpOnly</strong> (JS อ่านไม่ได้ = ป้องกันขโมย session) จึงเสนอโชว์ผ่าน DevTools → Network: ภาพ <code>Set-Cookie</code> ตอนล็อกอิน, ภาพ header <code>Cookie</code> ที่ส่งไปทุกคำขอ = &quot;Retrieve ID&quot;, ภาพแถวตาราง <code>sessions</code> สร้าง/ถูกลบตามวงจร — จะจัดเตรียมเป็นภาพหลักฐานชุด P-01</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> ล็อกอิน → DevTools Application → ชี้ cookie HttpOnly ✓ → รีเฟรชยังล็อกอิน → ล็อกเอาต์ → cookie หาย + แถวใน DB หาย</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 10 — Ajax (XMLHttpRequest / Fetch)</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> Ajax = หน้าเว็บคุยกับ server แบบไม่ต้องรีเฟรชทั้งหน้า เกณฑ์: ต้องใช้ XHR ตัวเก่าได้ → ใช้ Fetch ดึงจาก DB → และหลายจุดในหน้าเดียว</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> XMLHttpRequest + responseText</td>
+<td>ใช้ XHR จริงทำงานทุกหน้า</td>
+<td><code>assets/js/api.js</code> โหลด <code>/api/config</code> ด้วย XMLHttpRequest + <code>JSON.parse(responseText)</code> — ทุกหน้าเรียกตั้งแต่เปิด</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> ดึงข้อมูลจาก DB</td>
+<td>Fetch API เรียก API ทั้งหมด</td>
+<td>หนัง, รอบฉาย, คูปอง, ประวัติ — ทุกหน้าผ่าน Fetch</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅</strong> &gt;1 จุดใน 1 หน้า</td>
+<td>หน้าเดียวดึงหลายคำขอพร้อมกัน</td>
+<td>หน้าแรกดึง 3 คำขอพร้อมกัน (หนังฉาย + หนังจะมา + โปรโมชัน) ด้วย <code>Promise.all</code>; หน้ารายเรื่องดึง 2 (ตัวหนัง + รอบฉาย)</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> DevTools → Network → กรอง &quot;xhr&quot; → เปิดหน้าแรก → ชี้ทั้งคำขอ XHR (config) และ Fetch (movies/coming/promos) ในหน้าเดียว</p>
+<hr>
+<div class="pagebreak"></div><h2>ข้อ 11 — รายงานสรุปเชิงสถิติ</h2>
+<p><strong>อธิบายง่าย ๆ:</strong> หน้าหลังบ้านต้องมีรายงานตัวเลข — เกณฑ์ไล่จาก ตาราง → กราฟ → เปลี่ยนเงื่อนไขกรองได้</p>
+<table>
+<thead>
+<tr>
+<th>ระดับ</th>
+<th>สิ่งที่เราทำ</th>
+<th>ตัวอย่างจริง</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Basic ✅</strong> รายงานเป็นตาราง</td>
+<td>ตาราง + การ์ดสรุป นับจากข้อมูลจริงทั้งหมด</td>
+<td>ยอดขายรายเรื่อง, จำนวนสมาชิก/ตั๋ว/ค่าบริการ/มูลค่ารวม — นับจากแถวจริงใน DB (ไม่มีตัวเลขแต่ง)</td>
+</tr>
+<tr>
+<td><strong>Bonus ✅</strong> แสดงเป็นกราฟ</td>
+<td>กราฟแท่งรายวัน 14 วัน</td>
+<td>สร้างจากข้อมูลการจองจริงใน DB เขตเวลาไทยถูกต้อง</td>
+</tr>
+<tr>
+<td><strong>Big Bonus ✅→📋</strong> กรองเปลี่ยนเงื่อนไขได้</td>
+<td>ปุ่มกรองช่วงเวลา</td>
+<td>เลือก ทั้งหมด/7/14/30 วัน → กราฟและตัวเลขเปลี่ยนทันที (<code>/api/admin/stats?days=</code>)</td>
+</tr>
+<tr>
+<td>(เสริม) 🔶 กำลังทำ (v2.5)</td>
+<td><strong>ตารางนับผู้เข้าชมจริง</strong></td>
+<td>สร้างตาราง <code>visits</code> นับผู้เข้าชมจริง 1 คน/1 วัน = 1 ครั้ง (จำด้วย fingerprint ที่ hash จาก IP+เบราว์เซอร์ — ไม่เก็บ IP ดิบ รักษาความเป็นส่วนตัว) · การ์ด &quot;ผู้เข้าชม&quot; และกราฟผู้เข้าชมในหน้ารายงาน · ปิดประเด็น P-04 ครบวง</td>
+</tr>
+</tbody></table>
+<p><strong>โชว์ตอนพรีเซนต์:</strong> หลังบ้าน → สลับ filter 7/14/30 วัน → (v2.5 แล้ว) ชี้การ์ดผู้เข้าชม + กราฟ</p>
+<hr>
+<div class="pagebreak"></div><h2>สไลด์ท้าย 1 — ของที่เกินเกณฑ์ (ความปลอดภัย/คุณภาพ)</h2>
+<p>เผื่อกรรมการถาม &quot;มีอะไรพิเศษไหม&quot; — เลือกพูด 2–3 ข้อพอ:</p>
+<ul>
+<li><strong>กันจองชนกัน:</strong> สองคนกดจอที่นั่งเดียวกันพร้อมกัน → คนนึงได้ อีกคนได้ข้อความ &quot;ที่นั่งถูกจองไปแล้ว&quot; (ทำที่ระดับฐานข้อมูล)</li>
+<li><strong>กันหนังโดนลบทิ้ง:</strong> ถ้าหนังมีคนจองรอบอนาคต ระบบห้ามลบ — ตั๋วคนจองไม่หาย</li>
+<li><strong>รหัสผ่านเข้ารหัสเก็บ (bcrypt)</strong> + session เก็บแบบ hash + กันสแปมล็อกอิน/เดารหัสคูปอง (rate limit)</li>
+<li><strong>ตรวจไฟล์รูปจริง</strong> (magic bytes) ก่อนอัปโหลด — ไม่รับไฟล์แปลกปลอมแก้ต่อนามสกุล</li>
+<li><strong>ระบบเลื่อนตารางฉายอัตโนมัติทุกวัน</strong> (cron) — หนังหมดรอบไม่ต้องไปแก้มือ</li>
+</ul>
+<div class="pagebreak"></div><h2>คู่มือถ่ายภาพหลักฐาน (รูปประกอบสไลด์ — ถ่ายจากหน้าเว็บจริง)</h2>
+<blockquote>
+<p>ตัวเว็บ production ตอนนี้ยังเป็น v2.3 — ข้อที่ติด 🔶 ต้องรอ v2.4 merge แล้วจึงถ่ายจาก production ได้ (ระหว่างนี้ถ่ายจาก local ได้เหมือนกัน)</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>หมวด</th>
+<th>หน้าเว็บ</th>
+<th>การกระทำ → ภาพที่จับ</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 Wireframe</td>
+<td>(ไม่ใช่เว็บ)</td>
+<td>แผนภาพ architecture + flow จากเอกสาร plan</td>
+</tr>
+<tr>
+<td>2 CSS Selector</td>
+<td><code>index.html</code> + DevTools</td>
+<td>Elements → <code>&lt;a aria-current=&quot;page&quot;&gt;</code> (attribute) · ปุ่ม ghost พื้นเข้ม vs พื้นสว่าง (specificity 🔶)</td>
+</tr>
+<tr>
+<td>3 Validation</td>
+<td><code>register.html</code></td>
+<td>กดสมัครเปล่า → tooltip built-in; username ผิดรูปแบบ → tooltip pattern; รหัสผ่านไม่ตรง → กล่องข้อความไทย + Network ว่าง 🔶</td>
+</tr>
+<tr>
+<td>4 Semantic</td>
+<td><code>index.html</code> + DevTools Elements</td>
+<td>tree แสดง <code>&lt;header&gt; &lt;nav&gt; &lt;main&gt; &lt;section&gt; &lt;footer&gt;</code> ครบ</td>
+</tr>
+<tr>
+<td>5 Mobile First</td>
+<td><code>index.html</code></td>
+<td>device toolbar ย่อ 390px → layout เดียว; &lt;720px hero-meta/เรื่องย่อหาย ↔ ขยายกลับโผล่ (จับ 2 จอ) 🔶</td>
+</tr>
+<tr>
+<td>6 DOM JS</td>
+<td><code>seats.html</code>, <code>admin-promotions.html</code>, <code>account.html</code></td>
+<td>คลิกที่นั่งเปลี่ยนสี; การ์ดหน้าแรกเพิ่มตอน load; สลับชนิดส่วนลด → ฟิลด์เด้ง; สลับแท็บ account</td>
+</tr>
+<tr>
+<td>7 JSON</td>
+<td><code>index.html</code> / <code>checkout.html</code></td>
+<td>Network: response <code>/api/movies</code> เป็น JSON; POST <code>/api/bookings</code> → ประวัติมีรายการใหม่</td>
+</tr>
+<tr>
+<td>8 CRUD</td>
+<td><code>admin-movies.html</code>, <code>admin-accounts.html</code></td>
+<td>เพิ่ม/แก้/ลบหนัง; ค้นหา+กรอง; กดหน้า 2 → URL <code>?page=2</code></td>
+</tr>
+<tr>
+<td>9 Session</td>
+<td><code>login.html</code> + DevTools</td>
+<td>cookie <code>maison_sid</code> ✓HttpOnly ✓Secure; Network <code>Set-Cookie</code> ตอน login; header <code>Cookie</code> ใน request อื่น; logout → cookie หาย 🔶 (ชุด A+B)</td>
+</tr>
+<tr>
+<td>10 Ajax</td>
+<td><code>index.html</code></td>
+<td>Network กรอง &quot;xhr&quot; → เห็น <code>config</code> (XHR) + <code>movies</code>/<code>coming-soon</code>/<code>promotions</code> (Fetch) หน้าเดียว</td>
+</tr>
+<tr>
+<td>11 สถิติ</td>
+<td><code>admin.html</code></td>
+<td>ตารางยอดรายเรื่อง + กราฟแท่ง + คลิก filter 7/14/30 วันจับ 2–3 จอ</td>
+</tr>
+</tbody></table>
+<p><strong>ภาพเสริมแนะนำ:</strong> ป้าย &quot;เวอร์ชัน 2.4 (v2.4)&quot; ที่หน้าแรก/footer + หน้าตั๋วหลังจองสำเร็จ (ภาพจบครบวงจร)</p>
+<hr>
+<div class="pagebreak"></div><h2>สไลด์ท้าย 2 — สถานะงาน (ไว้ตอบคำถามกรรมการ ไม่ใส่สไลด์หลัก)</h2>
+<ol>
+<li>ข้อ 2/3/5 Big Bonus — โค้ดเสร็จแล้วใน v2.4 อยู่ระหว่างทดสอบรอบสุดท้าย</li>
+<li>ข้อ 6 — เพิ่ม <code>window.onload</code> ตรงถ้อยคำเกณฑ์ (กำลังใส่ใน v2.4)</li>
+<li>ข้อ 9 — เตรียมหลักฐาน session ตามข้อเสนอแบบ A+B (Network + DB)</li>
+<li>ข้อ 11 — ระบบนับผู้เข้าชมจริง (v2.5) กำลังดำเนินการ</li>
+<li>รอคำยืนยันจากอาจารย์ 3 เรื่อง: ข้อมูล/ภาพหนังจริงหรือใช้ภาพวาดเองได้ (ลิขสิทธิ์) · รูปแบบการส่ง wireframe · รับหลักฐาน session แบบ Network ไหม</li>
+</ol>
+</body>
+</html>
