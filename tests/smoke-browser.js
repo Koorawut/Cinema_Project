@@ -26,6 +26,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function main() {
   const exe = BROWSERS.find((p) => fs.existsSync(p));
   if (!exe) { throw new Error('ไม่พบ Edge/Chrome — ตั้ง BROWSER=path'); }
+  // กันชน production: smoke สร้างบัญชี/การจอง/คูปองจริง — ต้องรันบน PGlite เท่านั้น
+  // (.env.local บางเครื่องชี้ DATABASE_URL ไป Neon production — บทเรียนรอบที่ 12/15)
+  if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('pglite:')) {
+    throw new Error('smoke ต้องรันบน PGlite เท่านั้น (สร้างข้อมูลจริงใน DB) — รันด้วย: DATABASE_URL=pglite:./.pglite COOKIE_INSECURE=1 npm run test:smoke');
+  }
   const server = require('../scripts/dev-server');
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const BASE = 'http://127.0.0.1:' + server.address().port;
