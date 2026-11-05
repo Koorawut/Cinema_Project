@@ -581,3 +581,29 @@
 - ข้อสังเกต (ไม่ใช่บัค): `POST /api/auth/logout` ไม่มี body → 415 — เป็นดีไซน์เดิม (route ต้องการ `Content-Type: application/json`), หน้าเว็บส่ง `{}` อยู่แล้วจึงไม่กระทบผู้ใช้
 - `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่ม
 - ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
+
+---
+
+## รอบที่ 14 — 5 พฤศจิกายน 2026 · smoke บน production v2.4 หลัง merge
+
+ไม่มีการแก้โค้ด — curl ตรงกับ **production deployment** `https://maison-cinema-bml9nmurz-ai-test-project1.vercel.app` (deployment `bml9nmurz`, Ready; สร้างอัตโนมัติหลัง push merge commit `a8c9dc8` ขึ้น `main`)
+
+### ผลรายกลุ่มเคส
+
+| กลุ่มเคส | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| `GET /api/config` + หน้าแรก | 200 — ตอบจาก Neon จริง; eyebrow "เวอร์ชัน 2.4 (v2.4)"; `GET /api/movies` 200 | ผ่าน |
+| Cron fail-closed | ไม่มี Bearer → 401 | ผ่าน |
+| confirmPassword ฝั่ง server (v2.4) | สมัครโดย confirmPassword ไม่ตรง (username/email/password ถูกทั้งหมด) → 422 "รหัสผ่านทั้งสองช่องไม่ตรงกัน" — **ยืนยัน parity ฝั่ง server ของ Rubric 3 Big Bonus บน production** | ผ่าน |
+| สมัครจริง + ล้าง | `qacheckv24` 201 → admin login → DELETE 200 → ตรวจซ้ำไม่เจอ; ทุก session ออกแล้ว | ผ่าน |
+| logout | 200 | ผ่าน |
+
+### ของทดสอบที่ค้างใน DB หลังรอบนี้
+
+- **ไม่มี** — `qacheckv24` ลบแล้ว; ไม่ได้จอง/สร้างหนัง/คูปองในรอบนี้ (การจอง+โค้ดส่วนลด+จองซ้ำยืนยันไปแล้วบน Preview รอบที่ 13 กับ runtime เดียวกัน)
+
+### สรุปรอบ
+
+- **v2.4 live บน production แล้ว** — deployment `bml9nmurz` (จาก merge `a8c9dc8`); rollback target หากจำเป็น: `l2dn7wn7t` (v2.3), `gu8a58vn5`, `7l15vd2oq` (v2.2), `g6rpa9ndm` (v2.1)
+- `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่ม
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
