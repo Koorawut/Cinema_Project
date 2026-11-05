@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>MAISON — Wireframe และ System Architecture (Rubric 1)</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Leelawadee UI", "Segoe UI", Tahoma, sans-serif;
+    font-size: 11pt; line-height: 1.6; color: #1f2621; margin: 0; padding: 22px 26px; background: #fff;
+  }
+  h1 { font-size: 19pt; color: #171a18; border-bottom: 3px solid #C9B485; padding-bottom: 8px; margin: 0 0 4px; }
+  .subtitle { color: #55503E; font-size: 10.5pt; margin: 0 0 18px; }
+  h2 { font-size: 14pt; color: #23201A; background: #f3efe7; border-left: 5px solid #C9B485; padding: 6px 12px; margin: 24px 0 12px; }
+  h3 { font-size: 11.5pt; color: #55503E; margin: 16px 0 8px; }
+  p { margin: 6px 0; }
+  ul { margin: 6px 0 6px 22px; }
+  li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 10pt; }
+  th { background: #2e3230; color: #f7f1e8; padding: 5px 9px; text-align: left; }
+  td { border: 1px solid #d8d2c6; padding: 5px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #faf8f4; }
+  .pagebreak { page-break-before: always; }
+  code { font-family: Consolas, monospace; font-size: 9.5pt; background: #efece5; padding: 1px 5px; border-radius: 3px; }
+
+  /* ── flow diagram ── */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 12px 0; }
+  .fnode {
+    border: 1.5px solid #2e3230; border-radius: 8px; padding: 8px 10px; background: #faf8f2;
+    font-size: 9.5pt; min-width: 108px; text-align: center;
+  }
+  .fnode b { display: block; font-size: 10pt; color: #171a18; }
+  .fnode.user { background: #eae2cf; border-color: #A34A32; }
+  .fnode.admin { background: #101211; color: #f7f1e8; border-color: #C9B485; }
+  .fnode.admin b { color: #C9B485; }
+  .farrow { align-self: center; color: #A34A32; font-weight: 700; font-size: 13pt; }
+  .fnote { font-size: 9pt; color: #55503E; }
+
+  /* ── architecture diagram ── */
+  .arch { border: 1.5px solid #2e3230; border-radius: 10px; overflow: hidden; margin: 12px 0; }
+  .arch-layer { padding: 12px 14px; page-break-inside: avoid; }
+  .arch-layer + .arch-layer { border-top: 1.5px dashed #a9a294; }
+  .arch-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #A34A32; font-weight: 700; margin-bottom: 8px; }
+  .arch-boxes { display: flex; flex-wrap: wrap; gap: 10px; }
+  .abox {
+    border: 1.5px solid #2e3230; border-radius: 8px; padding: 9px 12px; background: #faf8f2;
+    font-size: 9.8pt; flex: 1 1 160px;
+  }
+  .abox b { display: block; color: #171a18; font-size: 10.5pt; }
+  .abox .small { color: #55503E; font-size: 8.8pt; line-height: 1.45; }
+  .abox.dark { background: #101211; color: #f7f1e8; border-color: #C9B485; }
+  .abox.dark b { color: #C9B485; }
+  .abox.dark .small { color: #cfc9ba; }
+  .abox.gold { background: #eae2cf; border-color: #A34A32; }
+  .downarrow { text-align: center; color: #A34A32; font-size: 15pt; font-weight: 700; line-height: 1.1; padding: 3px 0; }
+  .downarrow small { display: block; font-size: 8.5pt; color: #55503E; font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+  /* ── wireframe mock ── */
+  .wf { border: 1.5px solid #2e3230; border-radius: 8px; margin: 10px 0 16px; page-break-inside: avoid; }
+  .wf-head { background: #2e3230; color: #f7f1e8; padding: 4px 10px; font-size: 9.5pt; }
+  .wf-head .route { color: #C9B485; font-family: Consolas, monospace; font-size: 8.8pt; }
+  .wf-body { padding: 10px 12px; background: #fff; }
+  .wf-row { display: flex; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+  .wf-box { border: 1px solid #b9b2a3; border-radius: 5px; background: #f7f4ee; padding: 6px 9px; font-size: 9pt; flex: 1 1 120px; min-height: 26px; }
+  .wf-box.label { background: #eae2cf; color: #4a4438; font-weight: 600; }
+  .wf-box.darkbox { background: #101211; color: #f7f1e8; }
+  .wf-box.hero { background: #101211; color: #f7f1e8; min-height: 64px; flex-basis: 100%; }
+  .wf-box.hero .accent { color: #C9B485; }
+  .wf-box.seat { flex: 0 0 30px; min-height: 30px; max-width: 30px; padding: 0; text-align: center; line-height: 30px; font-size: 8pt; }
+  .wf-box.seat.free { background: #A34A32; color: #f7f1e8; border-color: #C77B62; }
+  .wf-box.seat.taken { background: #3A4038; color: #9aa39a; border-color: #3A4038; }
+  .wf-box.seat.sel { background: #C9B485; color: #171a18; border-color: #a8905f; }
+  .wf-box.formfield { border-style: dashed; }
+  .wf-box.action { background: #C9B485; color: #171a18; font-weight: 700; text-align: center; flex: 0 0 150px; }
+  .wf-box.grid2 { flex: 1 1 44%; }
+  .wf-box.grid3 { flex: 1 1 28%; }
+  .wf-caption { font-size: 8.8pt; color: #55503E; padding: 5px 10px; background: #f3efe7; border-top: 1px solid #d8d2c6; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 9pt; color: #55503E; margin: 8px 0; }
+  .legend span::before { content: "■ "; color: #A34A32; }
+</style>
+</head>
+<body>
+
+<h1>MAISON — Wireframe และ System Architecture</h1>
+<p class="subtitle">เว็บจองตั๋วภาพยนตร์ · เอกสารประกอบ Rubric ข้อ 1 (040613411 Web Development) · ฉบับ v2.4 — 5 พฤศจิกายน 2026</p>
+
+<h2>1. System Architecture — ผังระบบภาพรวม</h2>
+<p>ระบบแบ่งเป็น 3 ชั้น: หน้าเว็บ (front-end) คุยกับ API กลางบน Vercel ซึ่งต่อฐานข้อมูล PostgreSQL และคลาวด์เก็บรูป ทุกคำขอผ่าน API เสมอ — หน้าเว็บไม่ติดต่อฐานข้อมูลโดยตรง</p>
+
+<div class="arch">
+  <div class="arch-layer">
+    <div class="arch-label">ชั้นที่ 1 · Browser (Client)</div>
+    <div class="arch-boxes">
+      <div class="abox"><b>หน้า HTML 15 หน้า</b><span class="small">index · movies · movie · seats · checkout · ticket · bookings · offers · login · register · account · admin ×4</span></div>
+      <div class="abox"><b>assets/js/api.js (MAISON_API)</b><span class="small">HTTP client ตัวเดียวของทุกหน้า — XHR (GET /api/config) + fetch (ส่วนที่เหลือ)</span></div>
+      <div class="abox"><b>assets/js/app.js (MAISON)</b><span class="small">UI shell: header/footer, toast, dialog, จัดรูปวันที่/เงินไทย, guard สิทธิ์</span></div>
+      <div class="abox gold"><b>cookie maison_sid</b><span class="small">HttpOnly · Secure · SameSite=Lax — ตัวตนของ session ทุกคำขอ</span></div>
+    </div>
+    <div class="downarrow">▼<small>HTTPS · JSON · ส่ง cookie ทุกคำขอ (credentials)</small></div>
+  </div>
+  <div class="arch-layer">
+    <div class="arch-label">ชั้นที่ 2 · Vercel (Server)</div>
+    <div class="arch-boxes">
+      <div class="abox dark"><b>Vercel Function: api/index.js</b><span class="small">router เดียวของ /api/* (rewrite จาก vercel.json) → แยกงานเข้า server/routes/*.js</span></div>
+      <div class="abox"><b>server/http.js</b><span class="small">ตอบ JSON, อ่าน body ≤1MB, อ่าน cookie, ApiError → รหัส 4xx/5xx</span></div>
+      <div class="abox"><b>server/auth.js</b><span class="small">bcrypt · session token (sha256 ใน DB) · requireUser/requireAdmin · rate limit login</span></div>
+      <div class="abox"><b>server/routes/</b><span class="small">auth · catalog · bookings · promotions · admin</span></div>
+      <div class="abox"><b>server/time.js · schedule.js</b><span class="small">วันที่เขต Asia/Bangkok · คำนวณรอบฉายจากตารางฉายต่อเรื่อง · isPast()</span></div>
+      <div class="abox"><b>cron รายวัน 00:00 ไทย</b><span class="small">GET /api/cron/refresh-schedule (Bearer CRON_SECRET, fail-closed 401) — เลื่อนตารางฉายหนัง seed ที่หมดวัน</span></div>
+    </div>
+    <div class="downarrow">▼<small>parameterized SQL ทุกคำสั่ง</small></div>
+  </div>
+  <div class="arch-layer">
+    <div class="arch-label">ชั้นที่ 3 · ที่เก็บข้อมูล</div>
+    <div class="arch-boxes">
+      <div class="abox dark"><b>Neon Postgres</b><span class="small">ตาราง: users · sessions · login_attempts · movies · bookings · booking_seats · promotions</span></div>
+      <div class="abox dark"><b>Vercel Blob (Public store)</b><span class="small">ภาพโปสเตอร์/คูปองที่ admin แนบ — DB เก็บเป็น URL (posters/ · promotions/)</span></div>
+      <div class="abox"><b>Static: public/</b><span class="small">npm run build คัดลอก *.html + assets/ เป็น outputDirectory ของ Vercel</span></div>
+    </div>
+  </div>
+</div>
+
+<h3>จุดสำคัญของสถาปัตยกรรม</h3>
+<ul>
+  <li><b>รอบฉายคำนวณจากข้อมูล:</b> ไม่มีตาราง showtimes — คำนวณจาก "ตารางฉายต่อเรื่อง" ในตาราง <code>movies</code> (hall_id, date_start, date_end, periods) เป็น id รูป <code>st-{movieId}-{YYYY-MM-DD}-{morning|afternoon|evening}</code></li>
+  <li><b>กันจองซ้อนที่ระดับฐานข้อมูล:</b> <code>booking_seats UNIQUE(showtime_id, seat_id)</code> + insert การจอง/ที่นั่งใน SQL เดียว → ชนตอบ 409 พร้อมรายชื่อที่นั่ง (P-03)</li>
+  <li><b>เวลาทั้งหมดของ server:</b> ISO 8601 +07:00, "วันนี้" คำนวณที่ server (P-11) — client ไม่เชื่อนาฬิกาเครื่องผู้ใช้</li>
+  <li><b>ราคาคำนวณที่ server เสมอ:</b> client ส่งเฉพาะ showtimeId/seatIds/promoCode — server คิดเงินจากข้อมูล DB และกติกาคูปองเอง</li>
+  <li><b>นโยบายลบ:</b> ลบบัญชี/หนัง → การจองไม่หาย (SET NULL + snapshot ชื่อ/ราคาใน bookings); ห้ามลบหนังที่มีการจองอนาคต (409, P-16/P-18)</li>
+</ul>
+
+<h2 class="pagebreak">2. Wireframe — เส้นทางผู้ใช้ (customer flow)</h2>
+<p>Flow หลักของผู้ใช้: <b>เข้าสู่ระบบ → เลือกหนัง → เลือกรอบฉาย → เลือกที่นั่ง → ยืนยันจอง → รับตั๋ว</b></p>
+
+<div class="flow">
+  <div class="fnode user"><b>index</b>หน้าแรก<br><span class="fnote">Top 5 · โปรโมชัน</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode user"><b>movies</b>รายการหนัง<br><span class="fnote">ค้นหา + กรองแนว 8 ชนิด</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode user"><b>movie</b>รายละเอียด<br><span class="fnote">เลือกวัน/โรง/รอบเวลา</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode user"><b>seats</b>เลือกที่นั่ง<br><span class="fnote">ผัง A–H × 12</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode user"><b>checkout</b>ยืนยันจอง<br><span class="fnote">ใส่โค้ดส่วนลดได้</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode user"><b>ticket</b>ตั๋วสำเร็จ<br><span class="fnote">รหัส MAI-XXXXXX</span></div>
+</div>
+<p class="fnote">บัญชี: <b>login</b> (username/email + password + remember me) · <b>register</b> (สมัครใหม่) — จองโดยไม่ล็อกอินจะถูกดึงไป login ก่อน (guard ระดับหน้า + ตรวจสิทธิ์ที่ server อีกชั้น) · หลังจองดูย้อนหลังได้ที่ <b>bookings</b> (ประวัติ) และ <b>account</b> (ข้อมูลบัญชี/เปลี่ยนรหัสผ่าน)</p>
+
+<h3>Wireframe ตัวอย่างหน้าหลัก (mock ตามโครงสร้างจริง)</h3>
+
+<div class="wf">
+  <div class="wf-head">หน้าแรก — <span class="route">index.html</span></div>
+  <div class="wf-body">
+    <div class="wf-row"><div class="wf-box darkbox">header: โลโก้ MAISON | เมนู (หน้าแรก/รอบฉาย/โปรโมชัน/บัญชี) | ปุ่มเข้าสู่ระบบ</div></div>
+    <div class="wf-row"><div class="wf-box hero"><span class="accent">HERO — หนังเด่น</span> · ป้ายเวอร์ชัน · ปุ่ม "ดูรอบฉาย" + "เข้าสู่ระบบ" · แถวสถิติย่อ (N เรื่องกำลังฉาย / จะมา / โปรโมชัน)</div></div>
+    <div class="wf-row"><div class="wf-box label" style="flex-basis:100%">Top 5 ตามยอดตั๋วขาย</div><div class="wf-box grid3">การ์ด 1</div><div class="wf-box grid3">การ์ด 2</div><div class="wf-box grid3">การ์ด 3</div><div class="wf-box grid3">การ์ด 4</div><div class="wf-box grid3">การ์ด 5</div></div>
+    <div class="wf-row"><div class="wf-box label" style="flex-basis:100%">โปรโมชันน่าสนใจ</div><div class="wf-box grid2">การ์ดคูปอง + ภาพ</div><div class="wf-box grid2">การ์ดคูปอง + ภาพ</div></div>
+    <div class="wf-row"><div class="wf-box label" style="flex-basis:100%">กำลังจะมาถึง</div><div class="wf-box grid3">หนัง coming soon</div><div class="wf-box grid3">หนัง coming soon</div><div class="wf-box grid3">หนัง coming soon</div></div>
+    <div class="wf-row"><div class="wf-box">footer: เมนูรอง · ป้ายเวอร์ชัน "เวอร์ชัน 2.4 (v2.4)"</div></div>
+  </div>
+  <div class="wf-caption">API ที่ใช้: GET /api/config (XHR) + GET /api/movies, /api/movies/coming-soon, /api/promotions (fetch 3 คำขอพร้อมกัน — Rubric 10 Big Bonus)</div>
+</div>
+
+<div class="wf">
+  <div class="wf-head">เลือกที่นั่ง — <span class="route">seats.html?id={showtimeId}</span></div>
+  <div class="wf-body">
+    <div class="wf-row"><div class="wf-box">จอฉาย: ชื่อหนัง · วัน · โรง · เวลา | legend: <span style="color:#A34A32">■ ว่าง</span> <span style="color:#C9B485">■ เลือก</span> <span style="color:#3A4038">■ จองแล้ว</span> + ป้ายข้อความ (ไม่พึ่งสีเดียว)</div></div>
+    <div class="wf-row"><div class="wf-box label" style="flex:0 0 30px;min-height:30px;max-width:30px;padding:0;text-align:center;line-height:30px">A</div><div class="wf-box seat free">A1</div><div class="wf-box seat free">A2</div><div class="wf-box seat taken">A3</div><div class="wf-box seat free">A4</div><div class="wf-box seat sel">A5</div><div class="wf-box seat free">A6</div><div class="wf-box seat taken">A7</div><div class="wf-box seat free">A8</div><div class="wf-box seat free">A9</div><div class="wf-box seat free">A10</div><div class="wf-box seat free">A11</div><div class="wf-box seat free">A12</div></div>
+    <div class="wf-row"><div class="wf-box label" style="flex:0 0 30px;min-height:30px;max-width:30px;padding:0;text-align:center;line-height:30px">B</div><div class="wf-box seat taken">B1</div><div class="wf-box seat free">B2</div><div class="wf-box seat free">B3</div><div class="wf-box seat free">B4</div><div class="wf-box seat free">B5</div><div class="wf-box seat sel">B6</div><div class="wf-box seat free">B7</div><div class="wf-box seat free">B8</div><div class="wf-box seat taken">B9</div><div class="wf-box seat free">B10</div><div class="wf-box seat free">B11</div><div class="wf-box seat free">B12</div></div>
+    <div class="wf-row"><div class="wf-box">…แถว C–H ตามผังเดียวกัน (CSS Grid: แถวละ 1 ป้าย + 12 ที่นั่ง)</div></div>
+    <div class="wf-row"><div class="wf-box grid2">สรุป: เลือก 3 ที่นั่ง (A5, B6, …) · ราคา/ที่นั่ง ฿240 · คำเตือน "การเลือกยังไม่กันที่นั่ง" (ไม่มี timer)</div><div class="wf-box action">ไปยืนยันการจอง →</div></div>
+  </div>
+  <div class="wf-caption">API: GET /api/showtimes/{id} (รายการที่นั่งจริงต่อรอบ) · สถานะที่นั่งจาก DB จริง · คลิกที่นั่ง = เปลี่ยน style ด้วย getElementById (Rubric 6)</div>
+</div>
+
+<div class="wf">
+  <div class="wf-head">ยืนยันการจอง — <span class="route">checkout.html</span></div>
+  <div class="wf-body">
+    <div class="wf-row"><div class="wf-box label" style="flex-basis:100%">สรุปการจอง</div><div class="wf-box grid2">หนัง/รอบ/โรง/ที่นั่งที่เลือก</div><div class="wf-box grid2">ราคา: (ค่าตั๋ว × จำนวน) + ค่าบริการ ฿30/ตั๋ว</div></div>
+    <div class="wf-row"><div class="wf-box formfield">ช่องกรอกโค้ดส่วนลด + ปุ่ม "ตรวจโค้ด" — server quote ราคาใหม่ (422 หากรอบฉายไปแล้ว/โค้ดไม่ถูกกติกา)</div><div class="wf-box grid2">ยอดสุทธิหลังส่วนลด (server คำนวณเสมอ)</div></div>
+    <div class="wf-row"><div class="wf-box">ข้อความกำกับ: หน้านี้เป็นการยืนยันการจอง — ไม่มีการชำระเงินจริง (ตัดตามขอบเขต v1)</div><div class="wf-box action">ยืนยันการจอง</div></div>
+  </div>
+  <div class="wf-caption">API: POST /api/promotions/redeem (quote) · POST /api/bookings {showtimeId, seatIds, promoCode} → 201 พร้อมรหัส MAI-XXXXXX / 409 ที่นั่งชน + conflicts</div>
+</div>
+
+<div class="wf">
+  <div class="wf-head">ตั๋วจองสำเร็จ — <span class="route">ticket.html?id={bookingCode}</span></div>
+  <div class="wf-body">
+    <div class="wf-row"><div class="wf-box hero">✓ จองสำเร็จ — รหัสอ้างอิง <span class="accent">MAI-XXXXXX</span></div></div>
+    <div class="wf-row"><div class="wf-box grid3">หนัง + รอบฉาย</div><div class="wf-box grid3">โรง + ที่นั่ง</div><div class="wf-box grid3">ยอดรวม + ส่วนลดที่ใช้</div></div>
+    <div class="wf-row"><div class="wf-box">ปุ่ม: ดูประวัติการจอง → bookings.html · กลับหน้าแรก</div></div>
+  </div>
+  <div class="wf-caption">แสดงเฉพาะหลัง server ยืนยัน 201 — ไม่มี QR/ดาวน์โหลด/ข้อความ "ชำระแล้ว" (ตัดตามขอบเขต)</div>
+</div>
+
+<h2 class="pagebreak">3. Wireframe — หลังบ้าน (admin) และ entity ของฐานข้อมูล</h2>
+
+<div class="flow">
+  <div class="fnode admin"><b>admin</b>ภาพรวม<br><span class="fnote">การ์ดสรุป · กราฟแท่งรายวัน · ตารางรายเรื่อง · filter 7/14/30 วัน</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode admin"><b>admin-movies</b>จัดการหนัง<br><span class="fnote">CRUD + ค้นหา + แบ่งหน้า + กติกากันลบ (P-16/P-18)</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode admin"><b>admin-accounts</b>จัดการบัญชี<br><span class="fnote">ค้นหา · เปลี่ยน role · ลบ (กันลบ admin สุดท้าย) · แบ่งหน้า</span></div>
+  <div class="farrow">→</div>
+  <div class="fnode admin"><b>admin-promotions</b>จัดการคูปอง<br><span class="fnote">CRUD + แนบภาพ (Blob) + ฟอร์มกติกาส่วนลด 3 ชนิด</span></div>
+</div>
+<p class="fnote">ทุกหน้า admin มี sidebar เมนู + ตรวจสิทธิ์ซ้ำที่ server (requireAdmin → 401/403) — การซ่อนทางเข้าไม่ใช่การรักษาความปลอดภัย; ทุก route admin ตรวจที่ API เสมอ</p>
+
+<div class="wf">
+  <div class="wf-head">ภาพรวมสถิติ — <span class="route">admin.html</span> (Rubric 11)</div>
+  <div class="wf-body">
+    <div class="wf-row"><div class="wf-box">แถบ filter: [ทั้งหมด] [7 วัน] [14 วัน] [30 วัน] — เปลี่ยนเงื่อนไขกราฟ/ตาราง (Big Bonus)</div></div>
+    <div class="wf-row"><div class="wf-box grid3">ผู้ใช้ทั้งหมด N</div><div class="wf-box grid3">ผู้เข้าชม (ตั๋วที่ขาย)</div><div class="wf-box grid3">การจอง N</div><div class="wf-box grid3">รายได้ค่าบริการ</div><div class="wf-box grid3">มูลค่าตั๋วรวม</div></div>
+    <div class="wf-row"><div class="wf-box" style="flex-basis:100%;min-height:80px">กราฟแท่งมูลค่าการจองรายวัน 14 วัน (CSS bars จาก s.daily — สูงตามสัดส่วน, tooltip รายวัน)</div></div>
+    <div class="wf-row"><div class="wf-box grid2">ตารางยอดรายเรื่อง: หนัง | ตั๋ว | มูลค่า</div><div class="wf-box grid2">ตัวเลขทุกตัวนับจากแถวจริงใน DB (seed ติดป้ายข้อมูลตัวอย่าง)</div></div>
+  </div>
+  <div class="wf-caption">API: GET /api/admin/stats?days=N — GROUP BY รายเรื่อง + รายวัน (เขตไทย) จาก bookings status='confirmed'</div>
+</div>
+
+<h3>Entity ของฐานข้อมูล (Neon Postgres — db/schema.sql)</h3>
+<table>
+  <tr><th>ตาราง</th><th>สำคัญ</th><th>ความสัมพันธ์</th></tr>
+  <tr><td><b>users</b></td><td>id, username, email, password_hash (bcrypt), role (user/admin)</td><td>username/email ซ้ำไม่ได้ (unique index)</td></tr>
+  <tr><td><b>sessions</b></td><td>token_hash (sha256), user_id, remember, expires_at</td><td>→ users ON DELETE CASCADE — ลบบัญชี = ลบ session ทั้งหมด</td></tr>
+  <tr><td><b>login_attempts</b></td><td>identifier, ip, ผลสำเร็จ — ใช้ rate limit login + redeem (prefix rl:)</td><td>แยก bucket ต่อ identifier+IP</td></tr>
+  <tr><td><b>movies</b></td><td>id, title, price, hall_id, date_start, date_end, periods, now_showing</td><td>"ตารางฉายต่อเรื่อง" — รอบฉาย generate จากนี้</td></tr>
+  <tr><td><b>bookings</b></td><td>code (MAI-XXXXXX), snapshot ชื่อหนัง/ราคา, promo_code, discount, total, status</td><td>→ users / movies เป็น ON DELETE SET NULL — ประวัติไม่หายเมื่อลบต้นทาง</td></tr>
+  <tr><td><b>booking_seats</b></td><td>booking_id, showtime_id, seat_id</td><td><b>UNIQUE(showtime_id, seat_id)</b> — หัวใจกันจองซ้อน (P-03)</td></tr>
+  <tr><td><b>promotions</b></td><td>code, rule_type, rule_value, rule_weekday, rule_time_from/to, rule_seats, image URL</td><td>กติกา 3 ชนิด: percent_off / bundle_price / unit_price</td></tr>
+</table>
+
+<h3>Session วงจรเต็ม (Rubric 9)</h3>
+<table>
+  <tr><th>ขั้น</th><th>เกิดที่ไหน</th><th>อะไรเกิดขึ้น</th></tr>
+  <tr><td>Initialize</td><td>POST /api/auth/login</td><td>bcrypt เทียบรหัส → สร้างแถว sessions + ตั้ง cookie maison_sid (HttpOnly)</td></tr>
+  <tr><td>Store / Get</td><td>ตาราง sessions</td><td>เก็บ user_id, remember, expires_at — อ่านคืนทุกคำขอ</td></tr>
+  <tr><td>Retrieve ID</td><td>server/http.js</td><td>อ่าน token จาก cookie → hash → เทียบแถวใน DB (DB เก็บ sha256 ไม่เก็บ token ดิบ)</td></tr>
+  <tr><td>Remove</td><td>เปลี่ยนรหัสผ่าน</td><td>ลบ session อื่นของผู้ใช้ (ยกเว้น session ปัจจุบัน)</td></tr>
+  <tr><td>Terminate</td><td>POST /api/auth/logout</td><td>ลบแถว + ล้าง cookie; หมดอายุ 12 ชม. (ไม่ remember) / 30 วัน (remember)</td></tr>
+</table>
+
+<p class="fnote" style="margin-top:18px">เอกสารนี้สรุปจาก: <code>cinema-frontend-plan.md</code> §2–3 (ผังหน้าจอ 14 หน้าจาก Figma) · <code>cinema-v1-summary.md</code> §2 (สถาปัตยกรรม) · <code>db/schema.sql</code> · <code>vercel.json</code> — หน้า wireframe ในเอกสารนี้วาดตามโครงสร้างจริงของเว็บ v2.4 ไม่ใช่แบบจาก Figma ตรงตัว (Figma เป็นแหล่งออกแบบสี/โครงหน้า, รายละเอียดที่ตัดออก: verify email, trailer, payment จริง, timer กันที่นั่ง — ตามขอบเขตที่ตกลงกัน)</p>
+
+</body>
+</html>
