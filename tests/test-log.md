@@ -550,3 +550,34 @@
 - **การแก้สภาพแวดล้อม (ไม่แตะโค้ด/การจอง):** จำลองรอบ cron ของวันพรุ่งนี้ (2026-11-06) ด้วย logic เดียวกับ `refreshSchedule` — เลื่อนหนัง seed 8 เรื่องกลับ offset มาตรฐาน (m01 11-06..09, m02/m05/m04/m07 11-06..11, m03 11-06..08, m08 11-10..11, m06 11-09..11) ก่อนหน้านั้น `--refresh-schedule` รอบเช้าเลื่อนไม่ได้เพราะเงื่อนไข `date_end < วันนี้` ไม่จริงกับเรื่องที่ `date_end = วันนี้` และ m01/m03 ชนตาราง m08/m06 ก่อนเลื่อน — ตรวจก่อนว่าไม่มี booking ที่ยังผูกกับหนังกลุ่มนี้ (0 รายการ) และไม่ชน m09 (คนละหน้าต่างวันที่) · ผู้ใช้ทั้งหมด 55 (เพิ่มจาก 54 ด้วยบัญชี register ของเคส password-mismatch รอบแรก)
 - **ผลหลังแก้:** **smoke 22/22 ผ่านทั้งหมด** — ตั๋ว MAI-T3WV, EVENINGPAIR 540, P-12, 409 ซ้ำ, guard, localStorage สะอาด ครบ
 - **บทเรียนสำหรับรอบหน้า:** ก่อนรัน smoke ให้เช็ค `date_end` ล่าสุดของหนัง seed ≥ พรุ่งนี้ หรือรัน `npm run db:seed -- --refresh-schedule` หลังเที่ยงคืนวันที่ `date_end` ครบ ถ้าเจอกรณี `date_end = วันนี้` ต้องจำลอง cron ของวันถัดไปเอง (refresh ปกติไม่เลื่อนเรื่องที่ยังมีรอบวันนี้)
+
+---
+
+## รอบที่ 13 — 5 พฤศจิกายน 2026 · Preview smoke v2.4 ก่อน merge
+
+ไม่มีการแก้โค้ด — curl ตรงกับ **Preview deployment** `https://maison-cinema-o2fut6p76-ai-test-project1.vercel.app` (สร้างอัตโนมัติหลัง push branch `v2.4-dev` @ `7933fc6`; เชื่อมกับ Neon/Blob env ของ Production) เพื่อยืนยัน v2.4 ทำงานบน runtime จริงของ Vercel ก่อน merge ขึ้น main
+
+### ผลรายกลุ่มเคส
+
+| กลุ่มเคส | สิ่งที่ยืนยัน | ผล |
+| --- | --- | --- |
+| `/api/config` + หน้าเว็บ | 200 ตอบจาก Neon จริง; หน้าแรก eyebrow "เวอร์ชัน 2.4 (v2.4)"; movies.html/register.html 200 | ผ่าน |
+| Cron fail-closed | `GET /api/cron/refresh-schedule` ไม่มี Bearer → 401 · Bearer ผิด → 401 | ผ่าน |
+| สมัคร + login + `me` | บัญชี `qa_preview_v24` (username+email+password+confirmPassword) 201/200/200 ครบ; สมัครซ้ำ → 409 ที่ API; กรอกไม่ครบ (ไม่มี username / confirmPassword ไม่ตรง) → 422 ข้อความไทยตรงจุด | ผ่าน |
+| cookie ธง | `Set-Cookie: maison_sid=…; Path=/; HttpOnly; SameSite=Lax; Secure` | ผ่าน |
+| รอบฉายพรุ่งนี้ + ที่นั่ง | `showtimes m04 2026-11-06` ตอบ items ตามตารางที่ cron เลื่อนไว้; seats 94 ว่าง | ผ่าน |
+| จอง + จองซ้ำ | จอง `hall-02-A1/A2` รอบ `st-m04-2026-11-06-morning` → 201 รหัส `MAI-X44E` (540 = 240×2+30×2); จองซ้ำ → 409 + `conflicts ["hall-02-A1"]` | ผ่าน |
+| โค้ดส่วนลด | `MAISON20` (วันพุธเท่านั้น) กับรอบพรุ่งนี้ (พฤหัส) → 422 "โค้ดนี้ใช้ได้เฉพาะรอบฉายวันพุธ"; `eveningpair` รอบเย็น 2 ที่นั่ง → 200 valid พร้อม quote | ผ่าน |
+| สิทธิ์ admin | บัญชี user เรียก `/api/admin/users` → 403; admin login 200 + `/api/admin/stats?days=7` ตอบจาก DB จริง (`isDemoData: false`) | ผ่าน |
+| logout | POST + `Content-Type: application/json` → 200 และ session ตาย (`me` → 401) | ผ่าน |
+
+### ของทดสอบที่ค้างใน DB หลังรอบนี้
+
+- **ไม่มี** — ลบบัญชี `qa_preview_v24` จากหน้า admin API แล้ว (DELETE 200, ค้นหาซ้ำ = `[]`, login ด้วยรหัสเดิม → 401) การจอง `MAI-X44E` ถูกลบตามผู้ใช้ (cascade) · ทุก session ออกจากระบบแล้ว · ไม่ได้สร้างหนัง/คูปองทดสอบในรอบนี้
+
+### สรุปรอบ
+
+- Preview smoke ผ่าน **9/9 กลุ่มเคส** — v2.4 (commit `9874904` + `7933fc6`) ทำงานถูกต้องบน runtime Vercel จริง ทั้ง client validation parity (`confirmPassword` บังคับทั้งฝั่ง server — ยืนยันข้อ 422 ที่ smoke ในเครื่องไม่ได้จับ), cookie ธงครบ, สิทธิ์, โค้ดส่วนลด, จอง/ชน
+- ข้อสังเกต (ไม่ใช่บัค): `POST /api/auth/logout` ไม่มี body → 415 — เป็นดีไซน์เดิม (route ต้องการ `Content-Type: application/json`), หน้าเว็บส่ง `{}` อยู่แล้วจึงไม่กระทบผู้ใช้
+- `cinema-issues.md`: ไม่เปิด/ไม่ปิด ID เพิ่ม
+- ไฟล์ปัญหา: ไม่เพิ่ม ID ใหม่ / คงค้าง P-01, P-04, P-07
