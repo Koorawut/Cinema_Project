@@ -639,3 +639,19 @@
   - ลบสำเร็จ: booking `MAI-T3WV`, `MAI-Q82V`, `MAI-MWC8`, `MAI-G92Z` (booking_seats cascade ตาม) · หนัง `m12` · บัญชี `smokereg*` 2 บัญชี + `qa_prod_1` + `qa_prod_2`
   - ตรวจหลังลบ: users 55→51 · movies 12→9 seed (m12 ออก + รวม coming m09) · booking seed `MAI-7Q3F`/`MAI-2K8D` คงอยู่ · ยืนยันผ่าน production API: movies 9 เรื่อง (ไม่มี m12), totalUsers 51, การจอง 3,302
   - ตารางฉาย: ผู้ใช้เลือก**ปล่อยไว้ 11-06..11-11** (ไม่เลื่อนกลับ 11-05) — วันที่ 11-05 ไม่มีรอบฉายเฉพาะวันเดียว พรุ่งนี้เป็นปกติ และ cron เที่ยงคืนจะเลื่อนต่อเองตามรอบ
+
+---
+
+## รอบที่ 16 — 5 พฤศจิกายน 2026 · หลักฐานภาพรายหน้า P-01 (มือถือ + เดสก์ท็อป 28 ภาพ)
+
+### สิ่งที่ทำ
+
+- สคริปต์ใหม่ `tests/capture-evidence.js` — จับภาพหน้าจอจริงผ่าน CDP (headless Edge/Chrome) 2 viewport: มือถือ 390×844 และเดสก์ท็อป 1366×768 ครบทุกหน้า 15 หน้า: index, movies, movie (m02), offers, login, register, seats (เลือกที่นั่งจริง), checkout, ticket (เมื่อจองสำเร็จ), bookings, account, admin ×4 — login ด้วยการกรอกฟอร์ม + `requestSubmit()` เหมือนผู้ใช้จริง (ไม่ฉีด cookie)
+- รันกับ production v2.4 (`bml9nmurz`) บนบัญชี demo — ผลลัพธ์ 28 ภาพใน `evidence/v2.4/` (มือถือ 14 + เดสก์ท็อป 14; รอบแรกไม่มี ticket เพราะการยืนยันการจองโดน slot เดิม 409 — เก็บภาพ checkout ที่แสดงข้อความแจ้งแทน)
+- **แก้ภาพ spinner:** `tests/recapture-bookings.js` — ภาพ bookings รอบแรกจับตอน loading spinner ยังไม่เสร็จ จึงจับใหม่โดยรอข้อมูลจริงปรากฏ (`MAI-` / ข้อความว่าง) ก่อน screenshot — ยืนยันภาพใหม่แสดงรายการจริง: Orbit 9 `MAI-7Q3F` E7/E8 ฿660 + Bangkok Bank Run `MAI-2K8D` C4 ฿230 สถานะยืนยันแล้ว
+- ตรวจภาพเด่น: `mobile-index` (แถบเวอร์ชัน 2.4, hero-meta ซ่อนบนมือถือตาม Rubric 5), `desktop-index` (hero-meta แสดง: 9 เรื่องฉาย/2 เร็ว ๆ นี้/4 โปรโมชัน), `mobile-seats` (กริด A–H), `desktop-admin` (สถิติ 51 users / 3,302 bookings ตรง DB หลังเก็บกวาด)
+
+### ผล
+
+- **P-01 ปิดแล้ว** — หลักฐานภาพรายหน้าครบทั้ง 2 viewport เก็บที่ `evidence/v2.4/` (ภาพไม่ลง repo — ไฟล์ใหญ่/สร้างใหม่ได้ด้วยสคริปต์; สคริปต์ลง repo)
+- ไฟล์ปัญหา: ปิด P-01 / คงค้าง P-04, P-07
